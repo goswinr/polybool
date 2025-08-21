@@ -28,10 +28,11 @@ Boolean operations on polygons (union, intersection, difference, xor).
 
 Other kind souls have ported this library:
 
+* [Flutter/Dart port by @mohammedX6](https://github.com/mohammedX6/poly_bool_dart)
 * [Java port by @the3deers](https://github.com/the3deers/polybool-java)
 * [Java port by @Menecats](https://github.com/Menecats/polybool-java)
+* [Kotlin port by @StefanOltmann](https://github.com/StefanOltmann/polybool-kotlin)
 * [.NET port by @idormenco](https://github.com/idormenco/PolyBool.Net)
-* [Flutter/Dart port by @mohammedX6](https://github.com/mohammedX6/poly_bool_dart)
 * [Python port by @KaivnD](https://github.com/KaivnD/pypolybool)
 * [Roblox (Luau/Typescript) port by @codyduong](https://github.com/codyduong/rbxts-polybool)
 * Please make a ticket if you'd like to be added here :-)
