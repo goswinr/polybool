@@ -1,0 +1,21 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AssemblyName>PolyBool</AssemblyName>
+    <RootNamespace>PolyBool</RootNamespace>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Compile Include="Geometry.fs" />
+    <Compile Include="BuildLog.fs" />
+    <Compile Include="Segment.fs" />
+    <Compile Include="Intersecter.fs" />
+    <Compile Include="SegmentSelector.fs" />
+    <Compile Include="SegmentChainer.fs" />
+    <Compile Include="Shape.fs" />
+    <Compile Include="PolyBool.fs" />
+  </ItemGroup>
+
+</Project>
