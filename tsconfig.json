@@ -9,5 +9,10 @@
     "allowSyntheticDefaultImports": true,
     "esModuleInterop": true
   },
-  "exclude": ["node_modules", "dist", "src/polybool.test.ts"]
+  "exclude": [
+    "node_modules",
+    "dist",
+    "src/polybool.test.ts",
+    "src/polybool.polyclip.test.ts"
+  ]
 }
