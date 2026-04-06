@@ -5,74 +5,32 @@ open PolyBool
 
 let polybool: PolyBool = PolyBoolExports.polybool
 
-let triangle1Regions: Vec2[][] =
+let triangle1Regions: float[][] =
     [|
-        [|
-            [| 0.0; 0.0 |]
-            [| 5.0; 10.0 |]
-            [| 10.0; 0.0 |]
-        |]
+        [| 0.0; 0.0; 5.0; 10.0; 10.0; 0.0 |]
     |]
 
-let triangle2Regions: Vec2[][] =
+let triangle2Regions: float[][] =
     [|
-        [|
-            [| 5.0; 0.0 |]
-            [| 10.0; 10.0 |]
-            [| 15.0; 0.0 |]
-        |]
+        [| 5.0; 0.0; 10.0; 10.0; 15.0; 0.0 |]
     |]
 
-let example1Regions: Vec2[][] =
+let example1Regions: float[][] =
     [|
-        [|
-            [| 50.0; 50.0 |]
-            [| 150.0; 150.0 |]
-            [| 190.0; 50.0 |]
-        |]
-        [|
-            [| 130.0; 50.0 |]
-            [| 290.0; 150.0 |]
-            [| 290.0; 50.0 |]
-        |]
+        [| 50.0; 50.0; 150.0; 150.0; 190.0; 50.0 |]
+        [| 130.0; 50.0; 290.0; 150.0; 290.0; 50.0 |]
     |]
 
-let example2Regions: Vec2[][] =
+let example2Regions: float[][] =
     [|
-        [|
-            [| 110.0; 20.0 |]
-            [| 110.0; 110.0 |]
-            [| 20.0; 20.0 |]
-        |]
-        [|
-            [| 130.0; 170.0 |]
-            [| 130.0; 20.0 |]
-            [| 260.0; 20.0 |]
-            [| 260.0; 170.0 |]
-        |]
+        [| 110.0; 20.0; 110.0; 110.0; 20.0; 20.0 |]
+        [| 130.0; 170.0; 130.0; 20.0; 260.0; 20.0; 260.0; 170.0 |]
     |]
 
 let assertEqual<'T when 'T: equality>(a: 'T, b: 'T) : unit =
     if a <> b then
         printfn "Values do not match:\n%A\n%A" a b
         failwith "Values not equal"
-
-let assertThrowsContaining(expected: string, action: unit -> unit) : unit =
-    let mutable caught: exn option = None
-
-    try
-        action()
-    with err ->
-        caught <- Some err
-
-    match caught with
-    | Some err when err.Message.Contains(expected) ->
-        ()
-    | Some err ->
-        printfn "Unexpected exception message:\n%s" err.Message
-        failwith "Unexpected exception message"
-    | None ->
-        failwith "Expected an exception"
 
 let tests: (string * (unit -> unit))[] =
     [|
@@ -81,11 +39,7 @@ let tests: (string * (unit -> unit))[] =
             assertEqual(
                 polybool.Intersect(triangle1Regions, triangle2Regions),
                 [|
-                    [|
-                        [| 10.0; 0.0 |]
-                        [| 5.0; 0.0 |]
-                        [| 7.5; 5.0 |]
-                    |]
+                    [| 10.0; 0.0; 5.0; 0.0; 7.5; 5.0 |]
                 |]
             ))
         "basic union",
@@ -93,41 +47,15 @@ let tests: (string * (unit -> unit))[] =
             assertEqual(
                 polybool.Union(triangle1Regions, triangle2Regions),
                 [|
-                    [|
-                        [| 10.0; 10.0 |]
-                        [| 7.5; 5.0 |]
-                        [| 5.0; 10.0 |]
-                        [| 0.0; 0.0 |]
-                        [| 15.0; 0.0 |]
-                    |]
+                    [| 10.0; 10.0; 7.5; 5.0; 5.0; 10.0; 0.0; 0.0; 15.0; 0.0 |]
                 |]
-            ))
-        "rejects non-polygon vertex",
-        (fun () ->
-            assertThrowsContaining(
-                "only polygon vertices are supported",
-                fun () ->
-                    polybool.Union(
-                        [|
-                            [|
-                                [| 0.0; 0.0 |]
-                                [| 0.0; -5.0; 10.0; -5.0; 10.0; 0.0 |]
-                            |]
-                        |],
-                        triangle1Regions
-                    )
-                    |> ignore
             ))
         "array input",
         (fun () ->
             assertEqual(
                 polybool.Intersect(triangle1Regions, triangle2Regions),
                 [|
-                    [|
-                        [| 10.0; 0.0 |]
-                        [| 5.0; 0.0 |]
-                        [| 7.5; 5.0 |]
-                    |]
+                    [| 10.0; 0.0; 5.0; 0.0; 7.5; 5.0 |]
                 |]
             ))
         "example",
@@ -135,23 +63,9 @@ let tests: (string * (unit -> unit))[] =
             assertEqual(
                 polybool.Intersect(example1Regions, example2Regions),
                 [|
-                    [|
-                        [| 50.0; 50.0 |]
-                        [| 110.0; 50.0 |]
-                        [| 110.0; 110.0 |]
-                    |]
-                    [|
-                        [| 178.0; 80.0 |]
-                        [| 130.0; 50.0 |]
-                        [| 130.0; 130.0 |]
-                        [| 150.0; 150.0 |]
-                    |]
-                    [|
-                        [| 178.0; 80.0 |]
-                        [| 190.0; 50.0 |]
-                        [| 260.0; 50.0 |]
-                        [| 260.0; 131.25 |]
-                    |]
+                    [| 50.0; 50.0; 110.0; 50.0; 110.0; 110.0 |]
+                    [| 178.0; 80.0; 130.0; 50.0; 130.0; 130.0; 150.0; 150.0 |]
+                    [| 178.0; 80.0; 190.0; 50.0; 260.0; 50.0; 260.0; 131.25 |]
                 |]
             ))
     |]

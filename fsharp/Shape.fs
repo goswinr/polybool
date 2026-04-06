@@ -9,7 +9,7 @@ namespace PolyBool
 
 type private PathState =
     | BeginPath
-    | MoveTo of start: Vec2 * current: Vec2
+    | MoveTo of startX: float * startY: float * currentX: float * currentY: float
 
 type private ShapeResultState =
     | New of selfIntersect: Intersecter
@@ -45,18 +45,16 @@ type internal Shape( segments: SegmentBool[] option, log: BuildLog option) =
             | _ ->
                 this.BeginPath() |> ignore
 
-            let current: Vec2 = [| x; y |]
-            pathState <- MoveTo(current, current)
+            pathState <- MoveTo(x, y, x, y)
             this
         | _ ->
             failwith "PolyBool: Cannot change shape after using it in an operation"
 
     member this.LineTo(x: float, y: float) : Shape =
         match resultState, pathState with
-        | New selfIntersect, MoveTo(start, currentPoint) ->
-            let current: Vec2 = [| x; y |]
-            selfIntersect.AddLine(currentPoint, current)
-            pathState <- MoveTo(start, current)
+        | New selfIntersect, MoveTo(startX, startY, currentX, currentY) ->
+            selfIntersect.AddLine(currentX, currentY, x, y)
+            pathState <- MoveTo(startX, startY, x, y)
             this
         | New _, _ ->
             failwith "PolyBool: Must call moveTo prior to calling lineTo"
@@ -75,9 +73,9 @@ type internal Shape( segments: SegmentBool[] option, log: BuildLog option) =
         match resultState with
         | New selfIntersect ->
             match pathState with
-            | MoveTo(start, current) when not (Geometry.isEqualVec2(start, current)) ->
-                selfIntersect.AddLine(current, start)
-                pathState <- MoveTo(start, start)
+            | MoveTo(startX, startY, currentX, currentY) when not (Geometry.isEqualVec2(startX, startY, currentX, currentY)) ->
+                selfIntersect.AddLine(currentX, currentY, startX, startY)
+                pathState <- MoveTo(startX, startY, startX, startY)
             | _ ->
                 ()
 

@@ -59,16 +59,21 @@ module IntersecterFunctions =
         SegmentBool(seg.Data, Some seg.MyFill, seg.Closed, log)
 
 [<AllowNullLiteral>]
-type EventBool(isStart: bool, p: Vec2, seg: SegmentBool, primary: bool) =
-    let mutable pValue: Vec2 = p
+type EventBool(isStart: bool, px: float, py: float, seg: SegmentBool, primary: bool) =
+    let mutable pxValue: float = px
+    let mutable pyValue: float = py
     let mutable otherValue: EventBool = null
     let mutable statusValue: EventBool = null
 
     member this.IsStart: bool = isStart
 
-    member this.P
-        with get () : Vec2 = pValue
-        and set (value: Vec2) : unit = pValue <- value
+    member this.PX
+        with get () : float = pxValue
+        and set (value: float) : unit = pxValue <- value
+
+    member this.PY
+        with get () : float = pyValue
+        and set (value: float) : unit = pyValue <- value
 
     member this.Seg: SegmentBool = seg
     member this.Primary: bool = primary
@@ -160,19 +165,23 @@ type Intersecter(selfIntersection: bool,  ?log: BuildLog) =
 
     member this.CompareEvents(
         aStart: bool,
-        a1: Vec2,
-        a2: Vec2,
+        a1x: float,
+        a1y: float,
+        a2x: float,
+        a2y: float,
         aSeg: Segment,
         bStart: bool,
-        b1: Vec2,
-        b2: Vec2,
+        b1x: float,
+        b1y: float,
+        b2x: float,
+        b2y: float,
         bSeg: Segment
     ) : int =
-        let comp: int = Geometry.compareVec2(a1, b1)
+        let comp: int = Geometry.compareVec2(a1x, a1y, b1x, b1y)
 
         if comp <> 0 then
             comp
-        elif Geometry.isEqualVec2(a2, b2) then
+        elif Geometry.isEqualVec2(a2x, a2y, b2x, b2y) then
             0
         elif aStart <> bStart then
             if aStart then 1 else -1
@@ -188,32 +197,37 @@ type Intersecter(selfIntersection: bool,  ?log: BuildLog) =
                 else
                     this.CompareEvents(
                         ev.IsStart,
-                        ev.P,
-                        ev.Other.P,
+                        ev.PX,
+                        ev.PY,
+                        ev.Other.PX,
+                        ev.Other.PY,
                         ev.Seg.Data,
                         here.IsStart,
-                        here.P,
-                        here.Other.P,
+                        here.PX,
+                        here.PY,
+                        here.Other.PX,
+                        here.Other.PY,
                         here.Seg.Data
                     )
         )
 
-    member this.DivideEvent(ev: EventBool, t: float, p: Vec2) : EventBool =
-        this.Log |> Option.iter (fun log -> log.SegmentDivide(ev.Seg, p))
+    member this.DivideEvent(ev: EventBool, t: float, px: float, py: float) : EventBool =
+        this.Log |> Option.iter (fun log -> log.SegmentDivide(ev.Seg, px, py))
 
         let split: Segment[] = ev.Seg.Data.Split([| t |])
         let left: Segment = split.[0]
         let right: Segment = split.[1]
 
-        left.SetEnd(p)
-        right.SetStart(p)
+        left.SetEnd(px, py)
+        right.SetStart(px, py)
 
         let ns: SegmentBool = SegmentBool(right, Some ev.Seg.MyFill, ev.Seg.Closed, this.Log)
 
         this.Events.Remove(ev.Other)
         ev.Seg.Data <- left
         this.Log |> Option.iter (fun log -> log.SegmentChop(ev.Seg))
-        ev.Other.P <- p
+        ev.Other.PX <- px
+        ev.Other.PY <- py
         this.AddEvent(ev.Other)
         this.AddSegment(ns, ev.Primary)
 
@@ -225,24 +239,26 @@ type Intersecter(selfIntersection: bool,  ?log: BuildLog) =
             seg.Closed <- true
 
     member this.AddSegment(seg: SegmentBool, primary: bool) : EventBool =
-        let evStart: EventBool = EventBool(true, seg.Data.Start(), seg, primary)
-        let evEnd: EventBool = EventBool(false, seg.Data.``end``(), seg, primary)
+        let evStart: EventBool = EventBool(true, seg.Data.P0X, seg.Data.P0Y, seg, primary)
+        let evEnd: EventBool = EventBool(false, seg.Data.P1X, seg.Data.P1Y, seg, primary)
         evStart.Other <- evEnd
         evEnd.Other <- evStart
         this.AddEvent(evStart)
         this.AddEvent(evEnd)
         evStart
 
-    member this.AddLine(fromPoint: Vec2, toPoint: Vec2, ?primary: bool) : unit =
+    member this.AddLine(fromX: float, fromY: float, toX: float, toY: float, ?primary: bool) : unit =
         let primary: bool = defaultArg primary true
-        let f: int = Geometry.compareVec2(fromPoint, toPoint)
+        let f: int = Geometry.compareVec2(fromX, fromY, toX, toY)
 
         if f <> 0 then
-            let startPoint: Vec2 = if f < 0 then fromPoint else toPoint
-            let endPoint: Vec2 = if f < 0 then toPoint else fromPoint
+            let startX: float = if f < 0 then fromX else toX
+            let startY: float = if f < 0 then fromY else toY
+            let endX: float = if f < 0 then toX else fromX
+            let endY: float = if f < 0 then toY else fromY
             let seg: SegmentBool =
                 SegmentBool(
-                    Segment(startPoint, endPoint),
+                    Segment(startX, startY, endX, endY),
                     None,
                     false,
                     this.Log
@@ -252,29 +268,27 @@ type Intersecter(selfIntersection: bool,  ?log: BuildLog) =
             this.AddSegment(seg, primary) |> ignore
 
     member this.CompareSegments(seg1: Segment, seg2: Segment) : int =
-        let b: Vec2 = seg2.``end``()
-        let c: Vec2 = seg2.Start()
+        let bx: float = seg2.P1X
+        let by: float = seg2.P1Y
+        let cx: float = seg2.P0X
+        let cy: float = seg2.P0Y
 
-        let orientation(a: Vec2) : int =
-            let ax: float = a.[0]
-            let ay: float = a.[1]
-            let bx: float = b.[0]
-            let by: float = b.[1]
-            let cx: float = c.[0]
-            let cy: float = c.[1]
+        let orientation(ax: float, ay: float) : int =
             Math.Sign((bx - ax) * (cy - ay) - (by - ay) * (cx - ax))
 
-        let mutable a: Vec2 = seg1.Start()
+        let mutable ax: float = seg1.P0X
+        let mutable ay: float = seg1.P0Y
 
-        if seg2.PointOn(a) then
-            a <- seg1.``end``()
+        if seg2.PointOn(ax, ay) then
+            ax <- seg1.P1X
+            ay <- seg1.P1Y
 
-            if seg2.PointOn(a) then
+            if seg2.PointOn(ax, ay) then
                 0
             else
-                orientation a
+                orientation(ax, ay)
         else
-            orientation a
+            orientation(ax, ay)
 
     member this.StatusFindSurrounding(ev: EventBool) : ListBoolTransition =
         this.Status.FindTransition(
@@ -299,10 +313,10 @@ type Intersecter(selfIntersection: bool,  ?log: BuildLog) =
         | Some intersection ->
             match intersection.Kind with
             | TRangePairsKind ->
-                let tA1: float = intersection.TStart.[0]
-                let tB1: float = intersection.TStart.[1]
-                let tA2: float = intersection.TEnd.[0]
-                let tB2: float = intersection.TEnd.[1]
+                let tA1: float = intersection.TStartA
+                let tB1: float = intersection.TStartB
+                let tA2: float = intersection.TEndA
+                let tB2: float = intersection.TEndB
 
                 if
                     (tA1 = 1.0 && tA2 = 1.0 && tB1 = 0.0 && tB2 = 0.0)
@@ -312,68 +326,82 @@ type Intersecter(selfIntersection: bool,  ?log: BuildLog) =
                 elif tA1 = 0.0 && tA2 = 1.0 && tB1 = 0.0 && tB2 = 1.0 then
                     Some ev2
                 else
-                    let a1: Vec2 = seg1.Data.Start()
-                    let a2: Vec2 = seg1.Data.``end``()
-                    let b2: Vec2 = seg2.Data.``end``()
+                    let a1x: float = seg1.Data.P0X
+                    let a1y: float = seg1.Data.P0Y
+                    let a2x: float = seg1.Data.P1X
+                    let a2y: float = seg1.Data.P1Y
+                    let b2x: float = seg2.Data.P1X
+                    let b2y: float = seg2.Data.P1Y
 
                     if tA1 = 0.0 && tB1 = 0.0 then
                         if tA2 = 1.0 then
-                            this.DivideEvent(ev2, tB2, a2) |> ignore
+                            this.DivideEvent(ev2, tB2, a2x, a2y) |> ignore
                         else
-                            this.DivideEvent(ev1, tA2, b2) |> ignore
+                            this.DivideEvent(ev1, tA2, b2x, b2y) |> ignore
 
                         Some ev2
                     elif tB1 > 0.0 && tB1 < 1.0 then
                         if tA2 = 1.0 && tB2 = 1.0 then
-                            this.DivideEvent(ev2, tB1, a1) |> ignore
+                            this.DivideEvent(ev2, tB1, a1x, a1y) |> ignore
                         else
                             if tA2 = 1.0 then
-                                this.DivideEvent(ev2, tB2, a2) |> ignore
+                                this.DivideEvent(ev2, tB2, a2x, a2y) |> ignore
                             else
-                                this.DivideEvent(ev1, tA2, b2) |> ignore
+                                this.DivideEvent(ev1, tA2, b2x, b2y) |> ignore
 
-                            this.DivideEvent(ev2, tB1, a1) |> ignore
+                            this.DivideEvent(ev2, tB1, a1x, a1y) |> ignore
 
                         None
                     else
                         None
             | TValuePairsKind ->
-                if intersection.TValuePairs.Length <= 0 then
+                if intersection.TValuePairsCount <= 0 then
                     None
                 else
-                    let mutable minPair: Vec2 = intersection.TValuePairs.[0]
+                    let tvp: float[] = intersection.TValuePairs
+                    let mutable minIdx: int = 0
                     let mutable j: int = 1
 
-                    let isEndpointPair(pair: Vec2) : bool =
-                        (pair.[0] = 0.0 && pair.[1] = 0.0)
-                        || (pair.[0] = 0.0 && pair.[1] = 1.0)
-                        || (pair.[0] = 1.0 && pair.[1] = 0.0)
-                        || (pair.[0] = 1.0 && pair.[1] = 1.0)
+                    let isEndpointPair(idx: int) : bool =
+                        let t1: float = tvp.[idx * 2]
+                        let t2: float = tvp.[idx * 2 + 1]
+                        (t1 = 0.0 && t2 = 0.0)
+                        || (t1 = 0.0 && t2 = 1.0)
+                        || (t1 = 1.0 && t2 = 0.0)
+                        || (t1 = 1.0 && t2 = 1.0)
 
-                    while j < intersection.TValuePairs.Length && isEndpointPair minPair do
-                        minPair <- intersection.TValuePairs.[j]
+                    while j < intersection.TValuePairsCount && isEndpointPair minIdx do
+                        minIdx <- j
                         j <- j + 1
 
-                    let tA: float = minPair.[0]
-                    let tB: float = minPair.[1]
+                    let tA: float = tvp.[minIdx * 2]
+                    let tB: float = tvp.[minIdx * 2 + 1]
 
-                    let p: Vec2 =
-                        if tB = 0.0 then
-                            seg2.Data.Start()
-                        elif tB = 1.0 then
-                            seg2.Data.``end``()
-                        elif tA = 0.0 then
-                            seg1.Data.Start()
-                        elif tA = 1.0 then
-                            seg1.Data.``end``()
-                        else
-                            seg1.Data.Point(tA)
+                    let mutable px: float = 0.0
+                    let mutable py: float = 0.0
+
+                    if tB = 0.0 then
+                        px <- seg2.Data.P0X
+                        py <- seg2.Data.P0Y
+                    elif tB = 1.0 then
+                        px <- seg2.Data.P1X
+                        py <- seg2.Data.P1Y
+                    elif tA = 0.0 then
+                        px <- seg1.Data.P0X
+                        py <- seg1.Data.P0Y
+                    elif tA = 1.0 then
+                        px <- seg1.Data.P1X
+                        py <- seg1.Data.P1Y
+                    else
+                        seg1.Data.PointTo(tA)
+                        px <- Geometry.resultX
+                        py <- Geometry.resultY
 
                     if tA > 0.0 && tA < 1.0 then
-                        this.DivideEvent(ev1, tA, p) |> ignore
+                        this.DivideEvent(ev1, tA, px, py) |> ignore
 
                     if tB > 0.0 && tB < 1.0 then
-                        this.DivideEvent(ev2, tB, p) |> ignore
+                        this.DivideEvent(ev2, tB, px, py) |> ignore
 
                     None
 
@@ -383,7 +411,7 @@ type Intersecter(selfIntersection: bool,  ?log: BuildLog) =
         while not (this.Events.IsEmpty()) do
             let ev: EventBool = this.Events.GetHead()
             let mutable shouldRemoveHead: bool = true
-            this.Log |> Option.iter (fun log -> log.Vert(ev.P.[0]))
+            this.Log |> Option.iter (fun log -> log.Vert(ev.PX))
 
             if ev.IsStart then
                 this.Log |> Option.iter (fun log -> log.SegmentNew(ev.Seg, ev.Primary))

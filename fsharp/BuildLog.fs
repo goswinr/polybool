@@ -53,8 +53,8 @@ type BuildLog() =
     member this.CheckIntersection(seg1: obj, seg2: obj) : unit =
         this.Push("check", box {| seg1 = seg1; seg2 = seg2 |})
 
-    member this.SegmentDivide(seg: obj, p: Vec2) : unit =
-        this.Push("div_seg", box {| seg = seg; p = p |})
+    member this.SegmentDivide(seg: obj, px: float, py: float) : unit =
+        this.Push("div_seg", box {| seg = seg; px = px; py = py |})
 
     member this.SegmentChop(seg: obj) : unit =
         this.Push("chop", box {| seg = seg |})

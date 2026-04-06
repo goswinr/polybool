@@ -36,8 +36,8 @@ module SegmentChainer =
             None
 
     let joinLines(seg1: Segment, seg2: Segment) : Segment option =
-        if Geometry.isCollinear(seg1.P0, seg1.P1, seg2.P1) then
-            Some(Segment(seg1.P0, seg2.P1))
+        if Geometry.isCollinear(seg1.P0X, seg1.P0Y, seg1.P1X, seg1.P1Y, seg2.P1X, seg2.P1Y) then
+            Some(Segment(seg1.P0X, seg1.P0Y, seg2.P1X, seg2.P1Y))
         else
             None
 
@@ -57,8 +57,10 @@ module SegmentChainer =
             let mutable seg: Segment = segb.Data
             let closed: bool = segb.Closed
             let chains: ResizeArray<SegsFill> = if closed then closedChains else openChains
-            let pt1: Vec2 = seg.Start()
-            let pt2: Vec2 = seg.``end``()
+            let pt1x: float = seg.P0X
+            let pt1y: float = seg.P0Y
+            let pt2x: float = seg.P1X
+            let pt2y: float = seg.P1Y
 
             let reverseChain(index: int) : ResizeArray<Segment> =
                 log |> Option.iter (fun log -> log.ChainReverse(index, closed))
@@ -75,7 +77,7 @@ module SegmentChainer =
 
                 newChain
 
-            if Geometry.isEqualVec2(pt1, pt2) then
+            if Geometry.isEqualVec2(pt1x, pt1y, pt2x, pt2y) then
                 Console.WriteLine(
                     "PolyBool: Warning: Zero-length segment detected; your epsilon is probably too small or too large"
                 )
@@ -104,19 +106,21 @@ module SegmentChainer =
 
                 for i = 0 to chains.Count - 1 do
                     let chain: ResizeArray<Segment> = chains.[i].segs
-                    let head: Vec2 = chain.[0].Start()
-                    let tail: Vec2 = chain.[chain.Count - 1].``end``()
+                    let headX: float = chain.[0].P0X
+                    let headY: float = chain.[0].P0Y
+                    let tailX: float = chain.[chain.Count - 1].P1X
+                    let tailY: float = chain.[chain.Count - 1].P1Y
 
-                    if Geometry.isEqualVec2(head, pt1) then
+                    if Geometry.isEqualVec2(headX, headY, pt1x, pt1y) then
                         if setMatch(i, true, true) then
                             ()
-                    elif Geometry.isEqualVec2(head, pt2) then
+                    elif Geometry.isEqualVec2(headX, headY, pt2x, pt2y) then
                         if setMatch(i, true, false) then
                             ()
-                    elif Geometry.isEqualVec2(tail, pt1) then
+                    elif Geometry.isEqualVec2(tailX, tailY, pt1x, pt1y) then
                         if setMatch(i, false, true) then
                             ()
-                    elif Geometry.isEqualVec2(tail, pt2) then
+                    elif Geometry.isEqualVec2(tailX, tailY, pt2x, pt2y) then
                         if setMatch(i, false, false) then
                             ()
 
@@ -174,14 +178,17 @@ module SegmentChainer =
                         let mutable segS: Segment = finalChain.[0]
                         let mutable segE: Segment = finalChain.[finalChain.Count - 1]
 
-                        if finalChain.Count > 0 && Geometry.isEqualVec2(segS.Start(), segE.``end``()) then
+                        if finalChain.Count > 0 && Geometry.isEqualVec2(segS.P0X, segS.P0Y, segE.P1X, segE.P1Y) then
                             let mutable winding: float = 0.0
-                            let mutable last: Vec2 = finalChain.[0].Start()
+                            let mutable lastX: float = finalChain.[0].P0X
+                            let mutable lastY: float = finalChain.[0].P0Y
 
                             for seg: Segment in finalChain do
-                                let here: Vec2 = seg.``end``()
-                                winding <- winding + here.[1] * last.[0] - here.[0] * last.[1]
-                                last <- here
+                                let hereX: float = seg.P1X
+                                let hereY: float = seg.P1Y
+                                winding <- winding + hereY * lastX - hereX * lastY
+                                lastX <- hereX
+                                lastY <- hereY
 
                             let isClockwise: bool = winding < 0.0
 
@@ -293,7 +300,7 @@ module SegmentChainer =
 
     let internal segmentsToReceiver(
         segments: Segment[][],
-        
+
         receiver: PolyBoolReceiver
     ) : PolyBoolReceiver =
         receiver.BeginPath()
@@ -304,16 +311,14 @@ module SegmentChainer =
                     let seg: Segment = region.[i]
 
                     if i = 0 then
-                        let p0: Vec2 = seg.Start()
-                        receiver.MoveTo(p0.[0], p0.[1])
+                        receiver.MoveTo(seg.P0X, seg.P0Y)
 
-                    let p1: Vec2 = seg.P1
-                    receiver.LineTo(p1.[0], p1.[1])
+                    receiver.LineTo(seg.P1X, seg.P1Y)
 
                 let first: Segment = region.[0]
                 let last: Segment = region.[region.Length - 1]
 
-                if Geometry.isEqualVec2(first.Start(), last.``end``()) then
+                if Geometry.isEqualVec2(first.P0X, first.P0Y, last.P1X, last.P1Y) then
                     receiver.ClosePath()
 
         receiver
