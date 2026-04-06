@@ -296,12 +296,8 @@ module SegmentChainer =
     let segmentsToReceiver<'T when 'T :> IPolyBoolReceiver>(
         segments: Segment[][],
         geo: Geometry,
-        receiver: 'T,
-        matrix: Transform
+        receiver: 'T
     ) : 'T =
-        let applyPoint(point: Vec2) : Vec2 =
-            TransformFunctions.apply matrix point.[0] point.[1]
-
         receiver.beginPath()
 
         for region: Segment[] in segments do
@@ -310,12 +306,12 @@ module SegmentChainer =
                     let seg: Segment = region.[i]
 
                     if i = 0 then
-                        let p0: Vec2 = applyPoint (seg.start())
+                        let p0: Vec2 = seg.start()
                         receiver.moveTo(p0.[0], p0.[1])
 
                     match seg with
                     | :? SegmentLine as seg ->
-                        let p1: Vec2 = applyPoint seg.p1
+                        let p1: Vec2 = seg.p1
                         receiver.lineTo(p1.[0], p1.[1])
                     | _ ->
                         failwith "PolyBool: Unknown segment instance"

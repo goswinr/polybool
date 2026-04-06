@@ -12,33 +12,6 @@ open System
 type Vec2 = float[]
 type BBox = Vec2 * Vec2
 
-type Transform =
-    {
-        a: float
-        b: float
-        c: float
-        d: float
-        e: float
-        f: float
-    }
-
-module TransformFunctions =
-    let identity: Transform =
-        {
-            a = 1.0
-            b = 0.0
-            c = 0.0
-            d = 1.0
-            e = 0.0
-            f = 0.0
-        }
-
-    let apply (transform: Transform) (x: float) (y: float) : Vec2 =
-        [|
-            transform.a * x + transform.c * y + transform.e
-            transform.b * x + transform.d * y + transform.f
-        |]
-
 [<AbstractClass>]
 type Geometry() =
     abstract snap0: float -> float

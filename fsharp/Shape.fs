@@ -16,209 +16,17 @@ type private ShapeResultState =
     | Seg of segments: SegmentBool[]
     | Reg of segments: SegmentBool[] * regions: Segment[][]
 
-type Shape(geo: Geometry, segments: SegmentBool[] option, log: BuildLog option) =
+type internal Shape(geo: Geometry, segments: SegmentBool[] option, log: BuildLog option) =
     let mutable pathState: PathState = BeginPath
     let mutable resultState: ShapeResultState =
         match segments with
-        | Some segments ->
-            Seg segments
+        | Some initialSegments ->
+            Seg initialSegments
         | None ->
             New(Intersecter(true, geo, ?log = log))
 
-    let saveStack: ResizeArray<Transform> = ResizeArray<Transform>()
-    let mutable matrix: Transform = TransformFunctions.identity
-
     member this.geo: Geometry = geo
     member this.log: BuildLog option = log
-
-    member this.setTransform(a: float, b: float, c: float, d: float, e: float, f: float) : Shape =
-        match resultState with
-        | New _ ->
-            matrix <- { a = a; b = b; c = c; d = d; e = e; f = f }
-            this
-        | _ ->
-            failwith "PolyBool: Cannot change shape after using it in an operation"
-
-    member this.resetTransform() : Shape =
-        matrix <- TransformFunctions.identity
-        this
-
-    member this.getTransform() : Transform =
-        match resultState with
-        | New _ ->
-            matrix
-        | _ ->
-            failwith "PolyBool: Cannot change shape after using it in an operation"
-
-    member this.transform(a: float, b: float, c: float, d: float, e: float, f: float) : Shape =
-        let a0: float = matrix.a
-        let b0: float = matrix.b
-        let c0: float = matrix.c
-        let d0: float = matrix.d
-        let e0: float = matrix.e
-        let f0: float = matrix.f
-
-        matrix <-
-            {
-                a = a0 * a + c0 * b
-                b = b0 * a + d0 * b
-                c = a0 * c + c0 * d
-                d = b0 * c + d0 * d
-                e = a0 * e + c0 * f + e0
-                f = b0 * e + d0 * f + f0
-            }
-
-        this
-
-    member this.rotate(angle: float) : Shape =
-        let cos: float = System.Math.Cos(angle)
-        let sin: float = System.Math.Sin(angle)
-        let a0: float = matrix.a
-        let b0: float = matrix.b
-        let c0: float = matrix.c
-        let d0: float = matrix.d
-        let e0: float = matrix.e
-        let f0: float = matrix.f
-
-        matrix <-
-            {
-                a = a0 * cos + c0 * sin
-                b = b0 * cos + d0 * sin
-                c = c0 * cos - a0 * sin
-                d = d0 * cos - b0 * sin
-                e = e0
-                f = f0
-            }
-
-        this
-
-    member this.rotateDeg(angle: float) : Shape =
-        let ang: float = ((angle % 360.0) + 360.0) % 360.0
-
-        if ang = 0.0 then
-            this
-        else
-            let mutable cos: float = 0.0
-            let mutable sin: float = 0.0
-
-            if ang = 90.0 then
-                sin <- 1.0
-            elif ang = 180.0 then
-                cos <- -1.0
-            elif ang = 270.0 then
-                sin <- -1.0
-            elif ang = 45.0 then
-                cos <- System.Math.Sqrt(0.5)
-                sin <- System.Math.Sqrt(0.5)
-            elif ang = 135.0 then
-                sin <- System.Math.Sqrt(0.5)
-                cos <- -System.Math.Sqrt(0.5)
-            elif ang = 225.0 then
-                cos <- -System.Math.Sqrt(0.5)
-                sin <- -System.Math.Sqrt(0.5)
-            elif ang = 315.0 then
-                cos <- System.Math.Sqrt(0.5)
-                sin <- -System.Math.Sqrt(0.5)
-            elif ang = 30.0 then
-                cos <- System.Math.Sqrt(3.0) / 2.0
-                sin <- 0.5
-            elif ang = 60.0 then
-                cos <- 0.5
-                sin <- System.Math.Sqrt(3.0) / 2.0
-            elif ang = 120.0 then
-                cos <- -0.5
-                sin <- System.Math.Sqrt(3.0) / 2.0
-            elif ang = 150.0 then
-                cos <- -System.Math.Sqrt(3.0) / 2.0
-                sin <- 0.5
-            elif ang = 210.0 then
-                cos <- -System.Math.Sqrt(3.0) / 2.0
-                sin <- -0.5
-            elif ang = 240.0 then
-                cos <- -0.5
-                sin <- -System.Math.Sqrt(3.0) / 2.0
-            elif ang = 300.0 then
-                cos <- 0.5
-                sin <- -System.Math.Sqrt(3.0) / 2.0
-            elif ang = 330.0 then
-                cos <- System.Math.Sqrt(3.0) / 2.0
-                sin <- -0.5
-            else
-                let rad: float = (System.Math.PI * ang) / 180.0
-                cos <- System.Math.Cos(rad)
-                sin <- System.Math.Sin(rad)
-
-            let a0: float = matrix.a
-            let b0: float = matrix.b
-            let c0: float = matrix.c
-            let d0: float = matrix.d
-            let e0: float = matrix.e
-            let f0: float = matrix.f
-
-            matrix <-
-                {
-                    a = a0 * cos + c0 * sin
-                    b = b0 * cos + d0 * sin
-                    c = c0 * cos - a0 * sin
-                    d = d0 * cos - b0 * sin
-                    e = e0
-                    f = f0
-                }
-
-            this
-
-    member this.scale(sx: float, sy: float) : Shape =
-        let a0: float = matrix.a
-        let b0: float = matrix.b
-        let c0: float = matrix.c
-        let d0: float = matrix.d
-        let e0: float = matrix.e
-        let f0: float = matrix.f
-
-        matrix <- { a = a0 * sx; b = b0 * sx; c = c0 * sy; d = d0 * sy; e = e0; f = f0 }
-        this
-
-    member this.translate(tx: float, ty: float) : Shape =
-        let a0: float = matrix.a
-        let b0: float = matrix.b
-        let c0: float = matrix.c
-        let d0: float = matrix.d
-        let e0: float = matrix.e
-        let f0: float = matrix.f
-
-        matrix <-
-            {
-                a = a0
-                b = b0
-                c = c0
-                d = d0
-                e = a0 * tx + c0 * ty + e0
-                f = b0 * tx + d0 * ty + f0
-            }
-
-        this
-
-    member this.save() : Shape =
-        match resultState with
-        | New _ ->
-            saveStack.Add(matrix)
-            this
-        | _ ->
-            failwith "PolyBool: Cannot change shape after using it in an operation"
-
-    member this.restore() : Shape =
-        match resultState with
-        | New _ ->
-            if saveStack.Count > 0 then
-                matrix <- saveStack.[saveStack.Count - 1]
-                saveStack.RemoveAt(saveStack.Count - 1)
-
-            this
-        | _ ->
-            failwith "PolyBool: Cannot change shape after using it in an operation"
-
-    member this.transformPoint(x: float, y: float) : Vec2 =
-        TransformFunctions.apply matrix x y
 
     member this.beginPath() : Shape =
         match resultState with
@@ -237,7 +45,7 @@ type Shape(geo: Geometry, segments: SegmentBool[] option, log: BuildLog option) 
             | _ ->
                 this.beginPath() |> ignore
 
-            let current: Vec2 = this.transformPoint(x, y)
+            let current: Vec2 = [| x; y |]
             pathState <- MoveTo(current, current)
             this
         | _ ->
@@ -246,7 +54,7 @@ type Shape(geo: Geometry, segments: SegmentBool[] option, log: BuildLog option) 
     member this.lineTo(x: float, y: float) : Shape =
         match resultState, pathState with
         | New selfIntersect, MoveTo(start, currentPoint) ->
-            let current: Vec2 = this.transformPoint(x, y)
+            let current: Vec2 = [| x; y |]
             selfIntersect.addLine(currentPoint, current)
             pathState <- MoveTo(start, current)
             this
@@ -289,31 +97,26 @@ type Shape(geo: Geometry, segments: SegmentBool[] option, log: BuildLog option) 
     member private this.selfIntersect() : SegmentBool[] =
         match resultState with
         | New selfIntersect ->
-            let segments: SegmentBool[] = selfIntersect.calculate()
-            resultState <- Seg segments
-            segments
-        | Seg segments ->
-            segments
-        | Reg(segments, _) ->
-            segments
+            let calculatedSegments: SegmentBool[] = selfIntersect.calculate()
+            resultState <- Seg calculatedSegments
+            calculatedSegments
+        | Seg calculatedSegments ->
+            calculatedSegments
+        | Reg(calculatedSegments, _) ->
+            calculatedSegments
 
     member this.segments() : Segment[][] =
         match resultState with
         | Reg(_, regions) ->
             regions
         | _ ->
-            let seg: SegmentBool[] = this.selfIntersect()
-            let regions: Segment[][] = SegmentChainer.segmentChainer(seg, this.geo, this.log)
-            resultState <- Reg(seg, regions)
+            let calculatedSegments: SegmentBool[] = this.selfIntersect()
+            let regions: Segment[][] = SegmentChainer.segmentChainer(calculatedSegments, this.geo, this.log)
+            resultState <- Reg(calculatedSegments, regions)
             regions
 
-    member this.output<'T when 'T :> IPolyBoolReceiver>(receiver: 'T, ?matrix: Transform) : 'T =
-        SegmentChainer.segmentsToReceiver(
-            this.segments(),
-            this.geo,
-            receiver,
-            defaultArg matrix TransformFunctions.identity
-        )
+    member this.output<'T when 'T :> IPolyBoolReceiver>(receiver: 'T) : 'T =
+        SegmentChainer.segmentsToReceiver(this.segments(), this.geo, receiver)
 
     member this.combine(shape: Shape) : ShapeCombined =
         let intersection: Intersecter = Intersecter(false, this.geo, ?log = this.log)
@@ -326,7 +129,7 @@ type Shape(geo: Geometry, segments: SegmentBool[] option, log: BuildLog option) 
 
         ShapeCombined(intersection.calculate(), this.geo, this.log)
 
-and ShapeCombined(segments: SegmentBool[], geo: Geometry, log: BuildLog option) =
+and internal ShapeCombined(segments: SegmentBool[], geo: Geometry, log: BuildLog option) =
     member this.geo: Geometry = geo
     member this.log: BuildLog option = log
     member this.segmentsData: SegmentBool[] = segments
