@@ -6,6 +6,9 @@ This folder contains an F# port of the TypeScript implementation from the root
 of the repository. If you want the type-by-type translation notes, see
 [PORT-NOTES.md](d:/Git/polybool/fsharp/PORT-NOTES.md).
 
+The F# port is polygon-only. Regions must be lists of 2D vertices, and the
+instructional API only supports `moveTo`, `lineTo`, and `closePath`.
+
 # Features
 
 1. Clips polygons for all boolean operations
@@ -16,7 +19,7 @@ of the repository. If you want the type-by-type translation notes, see
    configurable epsilon)
 5. Provides an API for constructing efficient sequences of operations
 6. Outputs exterior paths as counter-clockwise, and holes as clockwise (right-hand rule)
-7. Handles line segments (stable) and bezier cubic curves (experimental)
+7. Supports polygon vertices and line segments only
 8. F# implementation
 
 # Resources
@@ -214,9 +217,6 @@ let receiver =
         member _.moveTo(x, y) = printfn $"moveTo {x} {y}"
         member _.lineTo(x, y) = printfn $"lineTo {x} {y}"
 
-        member _.bezierCurveTo(cp1x, cp1y, cp2x, cp2y, x, y) =
-            printfn $"bezierCurveTo {cp1x} {cp1y} {cp2x} {cp2y} {x} {y}"
-
         member _.closePath() = printfn "closePath" }
 
 shape1
@@ -275,22 +275,8 @@ let polygon: Polygon =
     }
 ```
 
-Bezier cubic curves are represented as a series of 6 numbers, in the order `cp1x`, `cp1y`, `cp2x`,
-`cp2y`, `x`, `y`, but support for curves is still experimental and unstable.
-
-```fsharp
-let polygonWithCurve: Polygon =
-    {
-        regions =
-            [|
-                [|
-                    [| 450.0; 150.0 |]
-                    [| 200.0; 150.0; 200.0; 60.0; 450.0; 60.0 |]
-                |]
-            |]
-        inverted = false
-    }
-```
+Each vertex must contain exactly two coordinates, `[| x; y |]`. Values with
+more than two coordinates are rejected by `polybool.segments(...)`.
 
 # Polygonal API
 
@@ -430,12 +416,12 @@ does not support an `inverted` flag.
 
 Instead, the Instructional API is modeled after the
 [CanvasRenderingContext2D](https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D)
-API.
+API, but the F# port only exposes the polygonal subset.
 
-Shapes are created using `beginPath`, `moveTo`, `lineTo`, `bezierCurveTo`, and `closePath`, then
+Shapes are created using `beginPath`, `moveTo`, `lineTo`, and `closePath`, then
 combined together, operated on, and output to a _receiver_.
 
-The receiver is an object with `beginPath`, `moveTo`, `lineTo`, `bezierCurveTo`, and `closePath`
+The receiver is an object with `beginPath`, `moveTo`, `lineTo`, and `closePath`
 defined, and those methods are called in order to output the result.
 
 Unlike the other APIs, the Instructional API supports _open paths_, which can be used by skipping
@@ -447,7 +433,6 @@ type IPolyBoolReceiver =
     abstract beginPath: unit -> unit
     abstract moveTo: float * float -> unit
     abstract lineTo: float * float -> unit
-    abstract bezierCurveTo: float * float * float * float * float * float -> unit
     abstract closePath: unit -> unit
 ```
 
@@ -473,15 +458,11 @@ let shape =
 Note that shapes can have multiple regions by calling `moveTo` more than once. Shapes support
 open and closed paths, so calling `closePath` is required if the path is filled.
 
-Shapes can also have bezier curves by calling `bezierCurveTo(...)` as well, but support for curves
-is still experimental and unstable.
-
 ```fsharp
 type Shape with
     member beginPath: unit -> Shape
     member moveTo: float * float -> Shape
     member lineTo: float * float -> Shape
-    member bezierCurveTo: float * float * float * float * float * float -> Shape
     member closePath: unit -> Shape
 ```
 
@@ -495,7 +476,7 @@ let combinedShape2 = shape1.combine(shape3)
 ```
 
 Notice that you can use shapes in multiple operations, but once you use a shape in an operation,
-you can't add more lines or curves to it.
+you can't add more line segments to it.
 
 ```fsharp
 type Shape with

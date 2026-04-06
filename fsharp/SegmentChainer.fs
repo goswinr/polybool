@@ -10,11 +10,6 @@ open System
 //
 
 module SegmentChainer =
-    //
-    // converts a list of segments into a list of regions, while also removing
-    // unnecessary verticies
-    //
-
     type ChainMatch =
         {
             mutable index: int
@@ -46,59 +41,12 @@ module SegmentChainer =
         else
             None
 
-    let joinCurves(seg1: SegmentCurve, seg2: SegmentCurve, geo: Geometry) : SegmentCurve option =
-        if geo.isCollinear(seg1.p2, seg1.p3, seg2.p1) then
-            let dx: float = seg2.p1.[0] - seg1.p2.[0]
-            let dy: float = seg2.p1.[1] - seg1.p2.[1]
-
-            let t: float =
-                if Math.Abs(dx) > Math.Abs(dy) then
-                    (seg1.p3.[0] - seg1.p2.[0]) / dx
-                else
-                    (seg1.p3.[1] - seg1.p2.[1]) / dy
-
-            let ts: float = geo.snap01(t)
-
-            if ts <> 0.0 && ts <> 1.0 then
-                let ns: SegmentCurve =
-                    SegmentCurve(
-                        seg1.p0,
-                        [|
-                            seg1.p0.[0] + (seg1.p1.[0] - seg1.p0.[0]) / t
-                            seg1.p0.[1] + (seg1.p1.[1] - seg1.p0.[1]) / t
-                        |],
-                        [|
-                            seg2.p2.[0] - (t * (seg2.p3.[0] - seg2.p2.[0])) / (1.0 - t)
-                            seg2.p2.[1] - (t * (seg2.p3.[1] - seg2.p2.[1])) / (1.0 - t)
-                        |],
-                        seg2.p3,
-                        geo
-                    )
-
-                // double check that if we split at T, we get seg1/seg2 back
-                let split: Segment[] = ns.split([| t |])
-                let left: Segment = split.[0]
-                let right: Segment = split.[1]
-
-                if left.isEqual(seg1) && right.isEqual(seg2) then
-                    Some ns
-                else
-                    None
-            else
-                None
-        else
-            None
-
     let joinSegments(seg1: Segment option, seg2: Segment option, geo: Geometry) : Segment option =
         match seg1, seg2 with
-        | Some seg1, Some seg2 when not (obj.ReferenceEquals(seg1, seg2)) ->
-            match seg1, seg2 with
-            | (:? SegmentLine as seg1), (:? SegmentLine as seg2) ->
-                joinLines(seg1, seg2, geo) |> Option.map (fun seg -> seg :> Segment)
-            | (:? SegmentCurve as seg1), (:? SegmentCurve as seg2) ->
-                joinCurves(seg1, seg2, geo) |> Option.map (fun seg -> seg :> Segment)
-            | _ ->
-                None
+        | Some (:? SegmentLine as seg1), Some (:? SegmentLine as seg2) when not (obj.ReferenceEquals(seg1, seg2)) ->
+            joinLines(seg1, seg2, geo) |> Option.map (fun seg -> seg :> Segment)
+        | Some _, Some _ ->
+            failwith "PolyBool: Unknown segment instance"
         | _ ->
             None
 
@@ -129,21 +77,18 @@ module SegmentChainer =
 
                 newChain
 
-            match seg with
-            | :? SegmentLine when geo.isEqualVec2(pt1, pt2) ->
+            if geo.isEqualVec2(pt1, pt2) then
                 Console.WriteLine(
                     "PolyBool: Warning: Zero-length segment detected; your epsilon is probably too small or too large"
                 )
-            | _ ->
+            else
                 log |> Option.iter (fun log -> log.chainStart(segFill(seg, Option.defaultValue false segb.myFill.above), closed))
 
-                // search for two chains that this segment matches
                 let firstMatch: ChainMatch = { index = 0; matchesHead = false; matchesPt1 = false }
                 let secondMatch: ChainMatch = { index = 0; matchesHead = false; matchesPt1 = false }
                 let mutable nextMatch: ChainMatch option = Some firstMatch
 
                 let setMatch(index: int, matchesHead: bool, matchesPt1: bool) : bool =
-                    // return true if we've matched twice
                     match nextMatch with
                     | Some next ->
                         next.index <- index
@@ -155,7 +100,7 @@ module SegmentChainer =
                             false
                         else
                             nextMatch <- None
-                            true // we've matched twice, we're done here
+                            true
                     | None ->
                         true
 
@@ -178,16 +123,13 @@ module SegmentChainer =
                             ()
 
                 if nextMatch |> Option.exists (fun m -> obj.ReferenceEquals(m, firstMatch)) then
-                    // we didn't match anything, so create a new chain
                     let fill: bool = Option.defaultValue false segb.myFill.above
                     chains.Add({ segs = ResizeArray<Segment>([| seg |]); fill = fill })
                     log |> Option.iter (fun log -> log.chainNew(segFill(seg, fill), closed))
                 elif nextMatch |> Option.exists (fun m -> obj.ReferenceEquals(m, secondMatch)) then
-                    // we matched a single chain
                     let index: int = firstMatch.index
                     log |> Option.iter (fun log -> log.chainMatch(index, closed))
 
-                    // add the other point to the apporpriate end
                     let chain: ResizeArray<Segment> = chains.[index].segs
                     let fill: bool = chains.[index].fill
 
@@ -208,7 +150,6 @@ module SegmentChainer =
                             log |> Option.iter (fun log -> log.chainAddTail(index, segFill(seg, fill), closed))
                             chain.Add(seg)
 
-                    // simplify chain
                     if firstMatch.matchesHead then
                         let next: Segment option = tryGet(chain, 1)
 
@@ -230,14 +171,12 @@ module SegmentChainer =
                         | None ->
                             ()
 
-                    // check for closed chain
                     if closed then
                         let mutable finalChain: ResizeArray<Segment> = chain
                         let mutable segS: Segment = finalChain.[0]
                         let mutable segE: Segment = finalChain.[finalChain.Count - 1]
 
                         if finalChain.Count > 0 && geo.isEqualVec2(segS.start(), segE.``end``()) then
-                            // see if chain is clockwise
                             let mutable winding: float = 0.0
                             let mutable last: Vec2 = finalChain.[0].start()
 
@@ -246,7 +185,6 @@ module SegmentChainer =
                                 winding <- winding + here.[1] * last.[0] - here.[0] * last.[1]
                                 last <- here
 
-                            // this assumes Cartesian coordinates (Y is positive going up)
                             let isClockwise: bool = winding < 0.0
 
                             if isClockwise = fill then
@@ -262,23 +200,18 @@ module SegmentChainer =
                             | None ->
                                 ()
 
-                            // we have a closed chain!
                             log |> Option.iter (fun log -> log.chainClose(index, closed))
                             chains.RemoveAt(index)
                             regions.Add(finalChain.ToArray())
                 else
-                    // otherwise, we matched two chains, so we need to combine those chains together
                     let appendChain(index1: int, index2: int) : unit =
-                        // index1 gets index2 appended to it, and index2 is removed
                         let chain1: ResizeArray<Segment> = chains.[index1].segs
                         let fill: bool = chains.[index1].fill
                         let chain2: ResizeArray<Segment> = chains.[index2].segs
 
-                        // add seg to chain1's tail
                         log |> Option.iter (fun log -> log.chainAddTail(index1, segFill(seg, fill), closed))
                         chain1.Add(seg)
 
-                        // simplify chain1's tail
                         let next: Segment option = tryGet(chain1, chain1.Count - 2)
 
                         match joinSegments(next, Some seg, geo) with
@@ -289,7 +222,6 @@ module SegmentChainer =
                         | None ->
                             ()
 
-                        // simplify chain2's head
                         let tail: Segment option = tryGet(chain1, chain1.Count - 1)
                         let head: Segment option = tryGet(chain2, 0)
 
@@ -315,65 +247,45 @@ module SegmentChainer =
 
                     log |> Option.iter (fun log -> log.chainConnect(fIndex, sIndex, closed))
 
-                    // reverse the shorter chain, if needed
                     let reverseF: bool = chains.[fIndex].segs.Count < chains.[sIndex].segs.Count
 
                     if firstMatch.matchesHead then
                         if secondMatch.matchesHead then
                             if reverseF then
                                 if not firstMatch.matchesPt1 then
-                                    // <<<< F <<<< <-- >>>> S >>>>
                                     seg <- seg.reverse()
 
-                                // <<<< F <<<< --> >>>> S >>>>
                                 reverseChain(fIndex) |> ignore
-                                // >>>> F >>>> --> >>>> S >>>>
                                 appendChain(fIndex, sIndex)
                             else
                                 if firstMatch.matchesPt1 then
-                                    // <<<< F <<<< --> >>>> S >>>>
                                     seg <- seg.reverse()
 
-                                // <<<< F <<<< <-- >>>> S >>>>
                                 reverseChain(sIndex) |> ignore
-                                // <<<< F <<<< <-- <<<< S <<<<   logically same as:
-                                // >>>> S >>>> --> >>>> F >>>>
                                 appendChain(sIndex, fIndex)
                         else
                             if firstMatch.matchesPt1 then
-                                // <<<< F <<<< --> >>>> S >>>>
                                 seg <- seg.reverse()
 
-                            // <<<< F <<<< <-- <<<< S <<<<   logically same as:
-                            // >>>> S >>>> --> >>>> F >>>>
                             appendChain(sIndex, fIndex)
                     else
                         if secondMatch.matchesHead then
                             if not firstMatch.matchesPt1 then
-                                // >>>> F >>>> <-- >>>> S >>>>
                                 seg <- seg.reverse()
 
-                            // >>>> F >>>> --> >>>> S >>>>
                             appendChain(fIndex, sIndex)
                         else
                             if reverseF then
                                 if firstMatch.matchesPt1 then
-                                    // >>>> F >>>> --> <<<< S <<<<
                                     seg <- seg.reverse()
 
-                                // >>>> F >>>> <-- <<<< S <<<<
                                 reverseChain(fIndex) |> ignore
-                                // <<<< F <<<< <-- <<<< S <<<<   logically same as:
-                                // >>>> S >>>> --> >>>> F >>>>
                                 appendChain(sIndex, fIndex)
                             else
                                 if not firstMatch.matchesPt1 then
-                                    // >>>> F >>>> <-- <<<< S <<<<
                                     seg <- seg.reverse()
 
-                                // >>>> F >>>> --> <<<< S <<<<
                                 reverseChain(sIndex) |> ignore
-                                // >>>> F >>>> --> >>>> S >>>>
                                 appendChain(fIndex, sIndex)
 
         for chain in openChains do
@@ -385,14 +297,10 @@ module SegmentChainer =
         segments: Segment[][],
         geo: Geometry,
         receiver: 'T,
-        matrix: Vec6
+        matrix: Transform
     ) : 'T =
-        let a: float = matrix.[0]
-        let b: float = matrix.[1]
-        let c: float = matrix.[2]
-        let d: float = matrix.[3]
-        let e: float = matrix.[4]
-        let f: float = matrix.[5]
+        let applyPoint(point: Vec2) : Vec2 =
+            TransformFunctions.apply matrix point.[0] point.[1]
 
         receiver.beginPath()
 
@@ -402,30 +310,13 @@ module SegmentChainer =
                     let seg: Segment = region.[i]
 
                     if i = 0 then
-                        let p0: Vec2 = seg.start()
-                        receiver.moveTo(a * p0.[0] + c * p0.[1] + e, b * p0.[0] + d * p0.[1] + f)
+                        let p0: Vec2 = applyPoint (seg.start())
+                        receiver.moveTo(p0.[0], p0.[1])
 
                     match seg with
                     | :? SegmentLine as seg ->
-                        let p1x: float = seg.p1.[0]
-                        let p1y: float = seg.p1.[1]
-                        receiver.lineTo(a * p1x + c * p1y + e, b * p1x + d * p1y + f)
-                    | :? SegmentCurve as seg ->
-                        let p1x: float = seg.p1.[0]
-                        let p1y: float = seg.p1.[1]
-                        let p2x: float = seg.p2.[0]
-                        let p2y: float = seg.p2.[1]
-                        let p3x: float = seg.p3.[0]
-                        let p3y: float = seg.p3.[1]
-
-                        receiver.bezierCurveTo(
-                            a * p1x + c * p1y + e,
-                            b * p1x + d * p1y + f,
-                            a * p2x + c * p2y + e,
-                            b * p2x + d * p2y + f,
-                            a * p3x + c * p3y + e,
-                            b * p3x + d * p3y + f
-                        )
+                        let p1: Vec2 = applyPoint seg.p1
+                        receiver.lineTo(p1.[0], p1.[1])
                     | _ ->
                         failwith "PolyBool: Unknown segment instance"
 

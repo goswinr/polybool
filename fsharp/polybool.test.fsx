@@ -45,18 +45,6 @@ let box1: Polygon =
         inverted = false
     }
 
-let curve1: Polygon =
-    {
-        regions =
-            [|
-                [|
-                    [| 0.0; 0.0 |]
-                    [| 0.0; -5.0; 10.0; -5.0; 10.0; 0.0 |]
-                |]
-            |]
-        inverted = false
-    }
-
 type Receiver() =
     let log: ResizeArray<obj> = ResizeArray<obj>()
 
@@ -77,22 +65,6 @@ type Receiver() =
             log.Add(box x)
             log.Add(box y)
 
-        member _.bezierCurveTo(
-            cp1x: float,
-            cp1y: float,
-            cp2x: float,
-            cp2y: float,
-            x: float,
-            y: float
-        ) : unit =
-            log.Add(box "bezierCurveTo")
-            log.Add(box cp1x)
-            log.Add(box cp1y)
-            log.Add(box cp2x)
-            log.Add(box cp2y)
-            log.Add(box x)
-            log.Add(box y)
-
         member _.closePath() : unit =
             log.Add(box "closePath")
 
@@ -100,6 +72,23 @@ let assertEqual<'T when 'T: equality>(a: 'T, b: 'T) : unit =
     if a <> b then
         printfn "Values do not match:\n%A\n%A" a b
         failwith "Values not equal"
+
+let assertThrowsContaining(expected: string, action: unit -> unit) : unit =
+    let mutable caught: exn option = None
+
+    try
+        action()
+    with err ->
+        caught <- Some err
+
+    match caught with
+    | Some err when err.Message.Contains(expected) ->
+        ()
+    | Some err ->
+        printfn "Unexpected exception message:\n%s" err.Message
+        failwith "Unexpected exception message"
+    | None ->
+        failwith "Expected an exception"
 
 let tests: (string * (unit -> unit))[] =
     [|
@@ -137,23 +126,24 @@ let tests: (string * (unit -> unit))[] =
                     inverted = false
                 }
             ))
-        "union with curve",
+        "rejects non-polygon vertex",
         (fun () ->
-            assertEqual(
-                polybool.union(box1, curve1),
-                {
-                    regions =
-                        [|
-                            [|
-                                [| 10.0; 0.0 |]
-                                [| 10.0; -2.5; 7.5; -3.75; 5.0; -3.75 |]
-                                [| 5.0; -5.0 |]
-                                [| 0.0; -5.0 |]
-                                [| 0.0; 0.0 |]
-                            |]
-                        |]
-                    inverted = false
-                }
+            assertThrowsContaining(
+                "only polygon vertices are supported",
+                fun () ->
+                    polybool.segments(
+                        {
+                            regions =
+                                [|
+                                    [|
+                                        [| 0.0; 0.0 |]
+                                        [| 0.0; -5.0; 10.0; -5.0; 10.0; 0.0 |]
+                                    |]
+                                |]
+                            inverted = false
+                        }
+                    )
+                    |> ignore
             ))
         "example",
         (fun () ->

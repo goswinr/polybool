@@ -7,16 +7,6 @@ namespace PolyBool
 // SPDX-License-Identifier: 0BSD
 //
 
-type Transform =
-    {
-        a: float
-        b: float
-        c: float
-        d: float
-        e: float
-        f: float
-    }
-
 type private PathState =
     | BeginPath
     | MoveTo of start: Vec2 * current: Vec2
@@ -35,8 +25,8 @@ type Shape(geo: Geometry, segments: SegmentBool[] option, log: BuildLog option) 
         | None ->
             New(Intersecter(true, geo, ?log = log))
 
-    let saveStack: ResizeArray<Vec6> = ResizeArray<Vec6>()
-    let mutable matrix: Vec6 = [| 1.0; 0.0; 0.0; 1.0; 0.0; 0.0 |]
+    let saveStack: ResizeArray<Transform> = ResizeArray<Transform>()
+    let mutable matrix: Transform = TransformFunctions.identity
 
     member this.geo: Geometry = geo
     member this.log: BuildLog option = log
@@ -44,68 +34,61 @@ type Shape(geo: Geometry, segments: SegmentBool[] option, log: BuildLog option) 
     member this.setTransform(a: float, b: float, c: float, d: float, e: float, f: float) : Shape =
         match resultState with
         | New _ ->
-            matrix <- [| a; b; c; d; e; f |]
+            matrix <- { a = a; b = b; c = c; d = d; e = e; f = f }
             this
         | _ ->
             failwith "PolyBool: Cannot change shape after using it in an operation"
 
     member this.resetTransform() : Shape =
-        matrix <- [| 1.0; 0.0; 0.0; 1.0; 0.0; 0.0 |]
+        matrix <- TransformFunctions.identity
         this
 
     member this.getTransform() : Transform =
         match resultState with
         | New _ ->
-            {
-                a = matrix.[0]
-                b = matrix.[1]
-                c = matrix.[2]
-                d = matrix.[3]
-                e = matrix.[4]
-                f = matrix.[5]
-            }
+            matrix
         | _ ->
             failwith "PolyBool: Cannot change shape after using it in an operation"
 
     member this.transform(a: float, b: float, c: float, d: float, e: float, f: float) : Shape =
-        let a0: float = matrix.[0]
-        let b0: float = matrix.[1]
-        let c0: float = matrix.[2]
-        let d0: float = matrix.[3]
-        let e0: float = matrix.[4]
-        let f0: float = matrix.[5]
+        let a0: float = matrix.a
+        let b0: float = matrix.b
+        let c0: float = matrix.c
+        let d0: float = matrix.d
+        let e0: float = matrix.e
+        let f0: float = matrix.f
 
         matrix <-
-            [|
-                a0 * a + c0 * b
-                b0 * a + d0 * b
-                a0 * c + c0 * d
-                b0 * c + d0 * d
-                a0 * e + c0 * f + e0
-                b0 * e + d0 * f + f0
-            |]
+            {
+                a = a0 * a + c0 * b
+                b = b0 * a + d0 * b
+                c = a0 * c + c0 * d
+                d = b0 * c + d0 * d
+                e = a0 * e + c0 * f + e0
+                f = b0 * e + d0 * f + f0
+            }
 
         this
 
     member this.rotate(angle: float) : Shape =
         let cos: float = System.Math.Cos(angle)
         let sin: float = System.Math.Sin(angle)
-        let a0: float = matrix.[0]
-        let b0: float = matrix.[1]
-        let c0: float = matrix.[2]
-        let d0: float = matrix.[3]
-        let e0: float = matrix.[4]
-        let f0: float = matrix.[5]
+        let a0: float = matrix.a
+        let b0: float = matrix.b
+        let c0: float = matrix.c
+        let d0: float = matrix.d
+        let e0: float = matrix.e
+        let f0: float = matrix.f
 
         matrix <-
-            [|
-                a0 * cos + c0 * sin
-                b0 * cos + d0 * sin
-                c0 * cos - a0 * sin
-                d0 * cos - b0 * sin
-                e0
-                f0
-            |]
+            {
+                a = a0 * cos + c0 * sin
+                b = b0 * cos + d0 * sin
+                c = c0 * cos - a0 * sin
+                d = d0 * cos - b0 * sin
+                e = e0
+                f = f0
+            }
 
         this
 
@@ -165,60 +148,60 @@ type Shape(geo: Geometry, segments: SegmentBool[] option, log: BuildLog option) 
                 cos <- System.Math.Cos(rad)
                 sin <- System.Math.Sin(rad)
 
-            let a0: float = matrix.[0]
-            let b0: float = matrix.[1]
-            let c0: float = matrix.[2]
-            let d0: float = matrix.[3]
-            let e0: float = matrix.[4]
-            let f0: float = matrix.[5]
+            let a0: float = matrix.a
+            let b0: float = matrix.b
+            let c0: float = matrix.c
+            let d0: float = matrix.d
+            let e0: float = matrix.e
+            let f0: float = matrix.f
 
             matrix <-
-                [|
-                    a0 * cos + c0 * sin
-                    b0 * cos + d0 * sin
-                    c0 * cos - a0 * sin
-                    d0 * cos - b0 * sin
-                    e0
-                    f0
-                |]
+                {
+                    a = a0 * cos + c0 * sin
+                    b = b0 * cos + d0 * sin
+                    c = c0 * cos - a0 * sin
+                    d = d0 * cos - b0 * sin
+                    e = e0
+                    f = f0
+                }
 
             this
 
     member this.scale(sx: float, sy: float) : Shape =
-        let a0: float = matrix.[0]
-        let b0: float = matrix.[1]
-        let c0: float = matrix.[2]
-        let d0: float = matrix.[3]
-        let e0: float = matrix.[4]
-        let f0: float = matrix.[5]
+        let a0: float = matrix.a
+        let b0: float = matrix.b
+        let c0: float = matrix.c
+        let d0: float = matrix.d
+        let e0: float = matrix.e
+        let f0: float = matrix.f
 
-        matrix <- [| a0 * sx; b0 * sx; c0 * sy; d0 * sy; e0; f0 |]
+        matrix <- { a = a0 * sx; b = b0 * sx; c = c0 * sy; d = d0 * sy; e = e0; f = f0 }
         this
 
     member this.translate(tx: float, ty: float) : Shape =
-        let a0: float = matrix.[0]
-        let b0: float = matrix.[1]
-        let c0: float = matrix.[2]
-        let d0: float = matrix.[3]
-        let e0: float = matrix.[4]
-        let f0: float = matrix.[5]
+        let a0: float = matrix.a
+        let b0: float = matrix.b
+        let c0: float = matrix.c
+        let d0: float = matrix.d
+        let e0: float = matrix.e
+        let f0: float = matrix.f
 
         matrix <-
-            [|
-                a0
-                b0
-                c0
-                d0
-                a0 * tx + c0 * ty + e0
-                b0 * tx + d0 * ty + f0
-            |]
+            {
+                a = a0
+                b = b0
+                c = c0
+                d = d0
+                e = a0 * tx + c0 * ty + e0
+                f = b0 * tx + d0 * ty + f0
+            }
 
         this
 
     member this.save() : Shape =
         match resultState with
         | New _ ->
-            saveStack.Add(Array.copy matrix)
+            saveStack.Add(matrix)
             this
         | _ ->
             failwith "PolyBool: Cannot change shape after using it in an operation"
@@ -235,13 +218,7 @@ type Shape(geo: Geometry, segments: SegmentBool[] option, log: BuildLog option) 
             failwith "PolyBool: Cannot change shape after using it in an operation"
 
     member this.transformPoint(x: float, y: float) : Vec2 =
-        let a: float = matrix.[0]
-        let b: float = matrix.[1]
-        let c: float = matrix.[2]
-        let d: float = matrix.[3]
-        let e: float = matrix.[4]
-        let f: float = matrix.[5]
-        [| a * x + c * y + e; b * x + d * y + f |]
+        TransformFunctions.apply matrix x y
 
     member this.beginPath() : Shape =
         match resultState with
@@ -268,10 +245,10 @@ type Shape(geo: Geometry, segments: SegmentBool[] option, log: BuildLog option) 
 
     member this.lineTo(x: float, y: float) : Shape =
         match resultState, pathState with
-        | New selfIntersect, MoveTo(_, currentPoint) ->
+        | New selfIntersect, MoveTo(start, currentPoint) ->
             let current: Vec2 = this.transformPoint(x, y)
             selfIntersect.addLine(currentPoint, current)
-            pathState <- MoveTo(match pathState with | MoveTo(start, _) -> start, current | _ -> current, current)
+            pathState <- MoveTo(start, current)
             this
         | New _, _ ->
             failwith "PolyBool: Must call moveTo prior to calling lineTo"
@@ -286,36 +263,9 @@ type Shape(geo: Geometry, segments: SegmentBool[] option, log: BuildLog option) 
             .closePath()
             .moveTo(x, y)
 
-    member this.bezierCurveTo(
-        cp1x: float,
-        cp1y: float,
-        cp2x: float,
-        cp2y: float,
-        x: float,
-        y: float
-    ) : Shape =
-        match resultState, pathState with
-        | New selfIntersect, MoveTo(_, currentPoint) ->
-            let current: Vec2 = this.transformPoint(x, y)
-
-            selfIntersect.addCurve(
-                currentPoint,
-                this.transformPoint(cp1x, cp1y),
-                this.transformPoint(cp2x, cp2y),
-                current
-            )
-
-            pathState <- MoveTo(match pathState with | MoveTo(start, _) -> start, current | _ -> current, current)
-            this
-        | New _, _ ->
-            failwith "PolyBool: Must call moveTo prior to calling bezierCurveTo"
-        | _ ->
-            failwith "PolyBool: Cannot change shape after using it in an operation"
-
     member this.closePath() : Shape =
         match resultState with
         | New selfIntersect ->
-            // close with a line if needed
             match pathState with
             | MoveTo(start, current) when not (this.geo.isEqualVec2(start, current)) ->
                 selfIntersect.addLine(current, start)
@@ -357,12 +307,12 @@ type Shape(geo: Geometry, segments: SegmentBool[] option, log: BuildLog option) 
             resultState <- Reg(seg, regions)
             regions
 
-    member this.output<'T when 'T :> IPolyBoolReceiver>(receiver: 'T, ?matrix: Vec6) : 'T =
+    member this.output<'T when 'T :> IPolyBoolReceiver>(receiver: 'T, ?matrix: Transform) : 'T =
         SegmentChainer.segmentsToReceiver(
             this.segments(),
             this.geo,
             receiver,
-            defaultArg matrix [| 1.0; 0.0; 0.0; 1.0; 0.0; 0.0 |]
+            defaultArg matrix TransformFunctions.identity
         )
 
     member this.combine(shape: Shape) : ShapeCombined =

@@ -9,7 +9,7 @@ namespace PolyBool
 
 type Polygon =
     {
-        regions: float[][][]
+        regions: Vec2[][]
         inverted: bool
     }
 
@@ -43,17 +43,22 @@ type PolyBool(?geo: Geometry, ?log: BuildLog) =
         let shape: Shape = this.shape()
         shape.beginPath() |> ignore
 
-        for region: float[][] in poly.regions do
-            let lastPoint: float[] = region.[region.Length - 1]
-            shape.moveTo(lastPoint.[lastPoint.Length - 2], lastPoint.[lastPoint.Length - 1]) |> ignore
+        let asVertex(point: Vec2) : Vec2 =
+            if point.Length <> 2 then
+                failwith "PolyBool: Invalid point in region; only polygon vertices are supported"
 
-            for p: float[] in region do
-                if p.Length = 2 then
-                    shape.lineTo(p.[0], p.[1]) |> ignore
-                elif p.Length = 6 then
-                    shape.bezierCurveTo(p.[0], p.[1], p.[2], p.[3], p.[4], p.[5]) |> ignore
-                else
-                    failwith "PolyBool: Invalid point in region"
+            point
+
+        for region: Vec2[] in poly.regions do
+            if region.Length <= 0 then
+                failwith "PolyBool: Regions must contain at least one vertex"
+
+            let lastPoint: Vec2 = asVertex region.[region.Length - 1]
+            shape.moveTo(lastPoint.[0], lastPoint.[1]) |> ignore
+
+            for p: Vec2 in region do
+                let point: Vec2 = asVertex p
+                shape.lineTo(point.[0], point.[1]) |> ignore
 
             shape.closePath() |> ignore
 
@@ -136,30 +141,19 @@ type PolyBool(?geo: Geometry, ?log: BuildLog) =
         }
 
     member this.polygon(segments: Segments) : Polygon =
-        let regions: ResizeArray<ResizeArray<float[]>> = ResizeArray<ResizeArray<float[]>>()
+        let regions: ResizeArray<ResizeArray<Vec2>> = ResizeArray<ResizeArray<Vec2>>()
 
         let receiver =
             { new IPolyBoolReceiver with
                 member _.beginPath() : unit = ()
 
                 member _.moveTo(_: float, _: float) : unit =
-                    regions.Add(ResizeArray<float[]>())
+                    regions.Add(ResizeArray<Vec2>())
 
                 member _.lineTo(x: float, y: float) : unit =
                     regions.[regions.Count - 1].Add([| x; y |])
 
-                member _.bezierCurveTo(
-                    c1x: float,
-                    c1y: float,
-                    c2x: float,
-                    c2y: float,
-                    x: float,
-                    y: float
-                ) : unit =
-                    regions.[regions.Count - 1].Add([| c1x; c1y; c2x; c2y; x; y |])
-
-                member _.closePath() : unit = ()
-            }
+                member _.closePath() : unit = () }
 
         segments.shape.output(receiver) |> ignore
 
@@ -168,7 +162,6 @@ type PolyBool(?geo: Geometry, ?log: BuildLog) =
             inverted = segments.inverted
         }
 
-    // helper functions for common operations
     member this.union(poly1: Polygon, poly2: Polygon) : Polygon =
         let seg1: Segments = this.segments(poly1)
         let seg2: Segments = this.segments(poly2)
