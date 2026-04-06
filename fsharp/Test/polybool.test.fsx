@@ -1,9 +1,11 @@
-#r "bin/Debug/netstandard2.0/PolyBool.dll"
+﻿// adapted from https://github.com/velipso/polybool/blob/main/src/polybool.test.ts
+
+#r "../PolyBool/bin/Debug/netstandard2.0/PolyBool.dll"
 
 open System
 open PolyBool
 
-let polybool: PolyBool = PolyBoolExports.polybool
+let polybool = PolyBool()
 
 let triangle1Regions: float[][] =
     [|

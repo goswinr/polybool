@@ -219,6 +219,3 @@ type PolyBool(? log: BuildLog) =
         let poly2: Polygon = polygonFromRegions regions2
         let result: Polygon = this.XorPolygon(poly1, poly2)
         result.regions
-
-module PolyBoolExports =
-    let polybool: PolyBool = PolyBool()
