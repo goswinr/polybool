@@ -23,12 +23,6 @@ let triangle2Regions: Vec2[][] =
         |]
     |]
 
-let triangle1Lists: Vec2 list list =
-    triangle1Regions |> Array.map Array.toList |> Array.toList
-
-let triangle2Lists: Vec2 list list =
-    triangle2Regions |> Array.map Array.toList |> Array.toList
-
 let example1Regions: Vec2[][] =
     [|
         [|
@@ -135,20 +129,6 @@ let tests: (string * (unit -> unit))[] =
                         [| 7.5; 5.0 |]
                     |]
                 |]
-            ))
-        "list input",
-        (fun () ->
-            assertEqual(
-                polybool.union(triangle1Lists, triangle2Lists),
-                [
-                    [
-                        [| 10.0; 10.0 |]
-                        [| 7.5; 5.0 |]
-                        [| 5.0; 10.0 |]
-                        [| 0.0; 0.0 |]
-                        [| 15.0; 0.0 |]
-                    ]
-                ]
             ))
         "example",
         (fun () ->

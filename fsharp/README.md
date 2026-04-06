@@ -135,7 +135,7 @@ supported public surface.
 
 The original TypeScript project is layered, and the F# port still follows the
 same internal pipeline, but the supported public surface is intentionally much
-smaller: polygon-only boolean operations over `Vec2[][]` or `Vec2 list list`.
+smaller: polygon-only boolean operations over `Vec2[][]`.
 
 The public entry points are the `PolyBool` overloads for:
 

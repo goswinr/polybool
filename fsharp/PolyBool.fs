@@ -36,17 +36,6 @@ type PolyBool(? log: BuildLog) =
             inverted = false
         }
 
-    let polygonFromRegionLists(regions: Vec2 list list) : Polygon =
-        {
-            regions = regions |> List.map List.toArray |> List.toArray
-            inverted = false
-        }
-
-    let regionListsFromPolygon(poly: Polygon) : Vec2 list list =
-        poly.regions |> Array.map Array.toList |> Array.toList
-
-
-
     member this.buildLog(enable: bool) : ResizeArray<BuildLogEntry> option =
         log <- if enable then Some(BuildLog()) else None
         log |> Option.map (fun log -> log.list)
@@ -231,36 +220,6 @@ type PolyBool(? log: BuildLog) =
         let poly2: Polygon = polygonFromRegions regions2
         let result: Polygon = this.xorPolygon(poly1, poly2)
         result.regions
-
-    member this.union(regions1: Vec2 list list, regions2: Vec2 list list) : Vec2 list list =
-        let poly1: Polygon = polygonFromRegionLists regions1
-        let poly2: Polygon = polygonFromRegionLists regions2
-        let result: Polygon = this.unionPolygon(poly1, poly2)
-        regionListsFromPolygon result
-
-    member this.intersect(regions1: Vec2 list list, regions2: Vec2 list list) : Vec2 list list =
-        let poly1: Polygon = polygonFromRegionLists regions1
-        let poly2: Polygon = polygonFromRegionLists regions2
-        let result: Polygon = this.intersectPolygon(poly1, poly2)
-        regionListsFromPolygon result
-
-    member this.difference(regions1: Vec2 list list, regions2: Vec2 list list) : Vec2 list list =
-        let poly1: Polygon = polygonFromRegionLists regions1
-        let poly2: Polygon = polygonFromRegionLists regions2
-        let result: Polygon = this.differencePolygon(poly1, poly2)
-        regionListsFromPolygon result
-
-    member this.differenceRev(regions1: Vec2 list list, regions2: Vec2 list list) : Vec2 list list =
-        let poly1: Polygon = polygonFromRegionLists regions1
-        let poly2: Polygon = polygonFromRegionLists regions2
-        let result: Polygon = this.differenceRevPolygon(poly1, poly2)
-        regionListsFromPolygon result
-
-    member this.xor(regions1: Vec2 list list, regions2: Vec2 list list) : Vec2 list list =
-        let poly1: Polygon = polygonFromRegionLists regions1
-        let poly2: Polygon = polygonFromRegionLists regions2
-        let result: Polygon = this.xorPolygon(poly1, poly2)
-        regionListsFromPolygon result
 
 module PolyBoolExports =
     let polybool: PolyBool = PolyBool()
