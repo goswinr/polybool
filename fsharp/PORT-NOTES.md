@@ -23,16 +23,16 @@ The goal of the port was to keep the original shape recognizable:
 | `interface Polygon` | `type Polygon = { regions: float[][][]; inverted: bool }` |
 | `interface Segments` | `type Segments = { shape: Shape; inverted: bool }` |
 | `interface CombinedSegments` | `type CombinedSegments = { shape: ShapeCombined; inverted1: bool; inverted2: bool }` |
-| `abstract class Geometry` | `type Geometry() = ...` with abstract members |
-| `class GeometryEpsilon extends Geometry` | `type GeometryEpsilon(?epsilon: float) = inherit Geometry()` |
+| `abstract class Geometry` | concrete `type Geometry(?epsilon: float)` |
+| `class GeometryEpsilon extends Geometry` | compatibility alias `type GeometryEpsilon = Geometry` |
 | `default class BuildLog` | `type BuildLog()` |
 | `interface SegmentBoolFill { above: boolean \| null; below: boolean \| null }` | `type SegmentBoolFill = { mutable above: bool option; mutable below: bool option }` |
 | `interface ListBoolTransition<T>` | `type ListBoolTransition<'T> = { before: 'T option; after: 'T option; insert: 'T -> 'T }` |
-| `abstract class SegmentBase<T>` | `abstract class Segment` |
-| `class SegmentLine extends SegmentBase<SegmentLine>` | `type SegmentLine(... ) = inherit Segment(...)` |
+| `abstract class SegmentBase<T>` | concrete `type Segment(...)` in the polygon-only port |
+| `class SegmentLine extends SegmentBase<SegmentLine>` | folded into concrete `type Segment(...)` |
 | `class SegmentCurve extends SegmentBase<SegmentCurve>` | `type SegmentCurve(... ) = inherit Segment(...)` |
-| `type Segment = SegmentLine \| SegmentCurve` | abstract base type `Segment` with runtime subtype checks |
-| `interface SegmentTValuePairs` / `interface SegmentTRangePairs` with `kind` | `SegmentIntersection` base class with `SegmentTValuePairs` and `SegmentTRangePairs` subclasses |
+| `type Segment = SegmentLine \| SegmentCurve` | polygon-only port keeps a single concrete `Segment` class |
+| `interface SegmentTValuePairs` / `interface SegmentTRangePairs` with `kind` | concrete `SegmentIntersection` helper class plus `SegmentIntersectionKind` |
 | `class SegmentTValuesBuilder` | `type SegmentTValuesBuilder(...)` |
 | `class SegmentTValuePairsBuilder` | `type SegmentTValuePairsBuilder(...)` |
 | `class SegmentBoolBase<T>` | abstract base type `SegmentBool` |
@@ -42,7 +42,7 @@ The goal of the port was to keep the original shape recognizable:
 | `class EventBool` | `type EventBool(...)` |
 | `class ListBool<T>` | `type ListBool<'T when 'T: equality>()` |
 | `class Intersecter` | `type Intersecter(...)` |
-| `interface IPolyBoolReceiver` | `type IPolyBoolReceiver = ...` |
+| `interface IPolyBoolReceiver` | concrete callback class `type PolyBoolReceiver(...)` |
 | `function SegmentChainer(...)` | `module SegmentChainer` with `segmentChainer(...)` |
 | `class SegmentSelector` with static methods | `type SegmentSelector private ()` with static members |
 | path-state tagged union objects in `Shape.ts` | private F# discriminated unions `PathState` and `ShapeResultState` |
@@ -57,7 +57,7 @@ The goal of the port was to keep the original shape recognizable:
 | --- | --- |
 | `foo?: T` or `foo: T \| null` | `foo: T option` |
 | `fill?.above ?? null` | `fill |> Option.bind (fun x -> x.above)` |
-| `instanceof SegmentLine` | `match value with \| :? SegmentLine as seg -> ...` |
+| `instanceof SegmentLine` | no runtime subtype check needed in the polygon-only port |
 | `Array<T>.push/splice/shift/unshift` | `ResizeArray<T>.Add/Insert/RemoveAt` |
 | anonymous object payloads for logging | `box {| ... |}` |
 | `export function ...` | `let ...` inside an F# module |
@@ -71,8 +71,8 @@ These are the main places where the F# port differs slightly from the TypeScript
 1. `Vec2` and `Vec6` are stored as `float[]` instead of fixed-length tuples.
    This keeps indexing behavior close to the original TypeScript code.
 
-2. TypeScript unions like `SegmentLine | SegmentCurve` were represented as class hierarchies.
-   That made the direct port of shared mutable behavior much simpler than redesigning the model around F# discriminated unions.
+2. Earlier iterations of the F# port represented `SegmentLine | SegmentCurve` as class hierarchies.
+   The current polygon-only port removes that hierarchy and keeps a single concrete `Segment` type.
 
 3. Nullable TypeScript fields became `option` values.
    This is most visible in fill state, optional logs, and intermediate lookup results.

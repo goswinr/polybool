@@ -9,31 +9,50 @@ open System
 // SPDX-License-Identifier: 0BSD
 //
 
-[<AbstractClass; AllowNullLiteral>]
-type SegmentIntersection(kind: string) =
-    member this.kind: string = kind
+type internal SegmentIntersectionKind =
+    | TValuePairsKind
+    | TRangePairsKind
 
-type SegmentTValuePairs(tValuePairs: Vec2[]) =
-    inherit SegmentIntersection("tValuePairs")
+type internal SegmentIntersection private (kind: SegmentIntersectionKind, ?tValuePairs: Vec2[], ?tStart: Vec2, ?tEnd: Vec2) =
+    member this.kind: SegmentIntersectionKind = kind
 
-    member val tValuePairs: Vec2[] = tValuePairs with get, set
+    member this.tValuePairs: Vec2[] =
+        match kind, tValuePairs with
+        | TValuePairsKind, Some value ->
+            value
+        | _ ->
+            failwith "PolyBool: Intersection does not contain tValuePairs"
 
-type SegmentTRangePairs(tStart: Vec2, tEnd: Vec2) =
-    inherit SegmentIntersection("tRangePairs")
+    member this.tStart: Vec2 =
+        match kind, tStart with
+        | TRangePairsKind, Some value ->
+            value
+        | _ ->
+            failwith "PolyBool: Intersection does not contain tStart"
 
-    member val tStart: Vec2 = tStart with get, set
-    member val tEnd: Vec2 = tEnd with get, set
+    member this.tEnd: Vec2 =
+        match kind, tEnd with
+        | TRangePairsKind, Some value ->
+            value
+        | _ ->
+            failwith "PolyBool: Intersection does not contain tEnd"
 
-type SegmentTValuePairsBuilder(allowOutOfRange: bool, geo: Geometry) =
+    static member FromTValuePairs(tValuePairs: Vec2[]) : SegmentIntersection =
+        SegmentIntersection(TValuePairsKind, tValuePairs = tValuePairs)
+
+    static member FromTRangePairs(tStart: Vec2, tEnd: Vec2) : SegmentIntersection =
+        SegmentIntersection(TRangePairsKind, tStart = tStart, tEnd = tEnd)
+
+type internal SegmentTValuePairsBuilder(allowOutOfRange: bool) =
     let tValuePairsStore: ResizeArray<Vec2> = ResizeArray<Vec2>()
 
     member this.tValuePairs: ResizeArray<Vec2> = tValuePairsStore
     member this.allowOutOfRange: bool = allowOutOfRange
-    member this.geo: Geometry = geo
+
 
     member this.add(t1: float, t2: float) : SegmentTValuePairsBuilder =
-        let t1: float = this.geo.snap01(t1)
-        let t2: float = this.geo.snap01(t2)
+        let t1: float = Geometry.snap01(t1)
+        let t2: float = Geometry.snap01(t2)
 
         if not this.allowOutOfRange && (t1 < 0.0 || t1 > 1.0 || t2 < 0.0 || t2 > 1.0) then
             this
@@ -44,7 +63,7 @@ type SegmentTValuePairsBuilder(allowOutOfRange: bool, geo: Geometry) =
             while i < tValuePairsStore.Count && not alreadyHave do
                 let tv: Vec2 = tValuePairsStore.[i]
 
-                if this.geo.snap0(t1 - tv.[0]) = 0.0 || this.geo.snap0(t2 - tv.[1]) = 0.0 then
+                if Geometry.snap0(t1 - tv.[0]) = 0.0 || Geometry.snap0(t2 - tv.[1]) = 0.0 then
                     alreadyHave <- true
 
                 i <- i + 1
@@ -63,33 +82,29 @@ type SegmentTValuePairsBuilder(allowOutOfRange: bool, geo: Geometry) =
         if tValuePairsStore.Count <= 0 then
             None
         else
-            Some(SegmentTValuePairs(this.list()) :> SegmentIntersection)
+            Some(SegmentIntersection.FromTValuePairs(this.list()))
 
-type IPolyBoolReceiver =
-    abstract beginPath: unit -> unit
-    abstract moveTo: float * float -> unit
-    abstract lineTo: float * float -> unit
-    abstract closePath: unit -> unit
+type internal PolyBoolReceiver(
+    ?beginPath: unit -> unit,
+    ?moveTo: float * float -> unit,
+    ?lineTo: float * float -> unit,
+    ?closePath: unit -> unit
+) =
+    let beginPathValue: unit -> unit = defaultArg beginPath (fun () -> ())
+    let moveToValue: float * float -> unit = defaultArg moveTo (fun _ -> ())
+    let lineToValue: float * float -> unit = defaultArg lineTo (fun _ -> ())
+    let closePathValue: unit -> unit = defaultArg closePath (fun () -> ())
 
-[<AbstractClass; AllowNullLiteral>]
-type Segment(geo: Geometry) =
-    member this.geo: Geometry = geo
+    member _.beginPath() : unit = beginPathValue ()
+    member _.moveTo(x: float, y: float) : unit = moveToValue(x, y)
+    member _.lineTo(x: float, y: float) : unit = lineToValue(x, y)
+    member _.closePath() : unit = closePathValue ()
 
-    abstract start: unit -> Vec2
-    abstract ``end``: unit -> Vec2
-    abstract setStart: Vec2 -> unit
-    abstract setEnd: Vec2 -> unit
-    abstract point: float -> Vec2
-    abstract split: float[] -> Segment[]
-    abstract reverse: unit -> Segment
-    abstract pointOn: Vec2 -> bool
-
-[<AllowNullLiteral>]
-type SegmentLine(p0: Vec2, p1: Vec2, geo: Geometry) =
-    inherit Segment(geo)
-
+type Segment(p0: Vec2, p1: Vec2) =
     let mutable p0Value: Vec2 = p0
     let mutable p1Value: Vec2 = p1
+
+
 
     member this.p0
         with get () : Vec2 = p0Value
@@ -99,19 +114,19 @@ type SegmentLine(p0: Vec2, p1: Vec2, geo: Geometry) =
         with get () : Vec2 = p1Value
         and set (value: Vec2) : unit = p1Value <- value
 
-    override this.start() : Vec2 =
+    member this.start() : Vec2 =
         this.p0
 
-    override this.``end``() : Vec2 =
+    member this.``end``() : Vec2 =
         this.p1
 
-    override this.setStart(p0: Vec2) : unit =
+    member this.setStart(p0: Vec2) : unit =
         this.p0 <- p0
 
-    override this.setEnd(p1: Vec2) : unit =
+    member this.setEnd(p1: Vec2) : unit =
         this.p1 <- p1
 
-    override this.point(t: float) : Vec2 =
+    member this.point(t: float) : Vec2 =
         let p0: Vec2 = this.p0
         let p1: Vec2 = this.p1
 
@@ -125,29 +140,29 @@ type SegmentLine(p0: Vec2, p1: Vec2, geo: Geometry) =
                 p0.[1] + (p1.[1] - p0.[1]) * t
             |]
 
-    override this.split(ts: float[]) : Segment[] =
+    member this.split(ts: float[]) : Segment[] =
         if ts.Length <= 0 then
-            [| this :> Segment |]
+            [| this |]
         else
             let pts: Vec2[] = ts |> Array.map this.point
             let result: ResizeArray<Segment> = ResizeArray<Segment>()
             let mutable last: Vec2 = this.p0
 
             for p: Vec2 in pts do
-                result.Add(SegmentLine(last, p, this.geo) :> Segment)
+                result.Add(Segment(last, p))
                 last <- p
 
-            result.Add(SegmentLine(last, this.p1, this.geo) :> Segment)
+            result.Add(Segment(last, this.p1))
             result.ToArray()
 
-    override this.reverse() : Segment =
-        SegmentLine(this.p1, this.p0, this.geo) :> Segment
+    member this.reverse() : Segment =
+        Segment(this.p1, this.p0)
 
-    override this.pointOn(p: Vec2) : bool =
-        this.geo.isCollinear(p, this.p0, this.p1)
+    member this.pointOn(p: Vec2) : bool =
+        Geometry.isCollinear(p, this.p0, this.p1)
 
 module SegmentFunctions =
-    let projectPointOntoSegmentLine(p: Vec2, seg: SegmentLine) : float =
+    let private projectPointOntoSegment(p: Vec2, seg: Segment) : float =
         let dx: float = seg.p1.[0] - seg.p0.[0]
         let dy: float = seg.p1.[1] - seg.p0.[1]
         let px: float = p.[0] - seg.p0.[0]
@@ -156,12 +171,7 @@ module SegmentFunctions =
         let dot: float = px * dx + py * dy
         dot / dist
 
-    let segmentLineIntersectSegmentLine(
-        segA: SegmentLine,
-        segB: SegmentLine,
-        allowOutOfRange: bool
-    ) : SegmentIntersection option =
-        let geo: Geometry = segA.geo
+    let internal segmentsIntersect(segA: Segment, segB: Segment, allowOutOfRange: bool) : SegmentIntersection option =
         let a0: Vec2 = segA.p0
         let a1: Vec2 = segA.p1
         let b0: Vec2 = segB.p0
@@ -172,44 +182,36 @@ module SegmentFunctions =
         let bdy: float = b1.[1] - b0.[1]
         let axb: float = adx * bdy - ady * bdx
 
-        if geo.snap0(axb) = 0.0 then
-            if not (geo.isCollinear(a0, a1, b0)) then
+        if Geometry.snap0(axb) = 0.0 then
+            if not (Geometry.isCollinear(a0, a1, b0)) then
                 None
             else
-                let tB0onA: float = projectPointOntoSegmentLine(segB.p0, segA)
-                let tB1onA: float = projectPointOntoSegmentLine(segB.p1, segA)
-                let tAMin: float = geo.snap01(Math.Min(tB0onA, tB1onA))
-                let tAMax: float = geo.snap01(Math.Max(tB0onA, tB1onA))
+                let tB0onA: float = projectPointOntoSegment(segB.p0, segA)
+                let tB1onA: float = projectPointOntoSegment(segB.p1, segA)
+                let tAMin: float = Geometry.snap01(Math.Min(tB0onA, tB1onA))
+                let tAMax: float = Geometry.snap01(Math.Max(tB0onA, tB1onA))
 
                 if tAMax < 0.0 || tAMin > 1.0 then
                     None
                 else
-                    let tA0onB: float = projectPointOntoSegmentLine(segA.p0, segB)
-                    let tA1onB: float = projectPointOntoSegmentLine(segA.p1, segB)
-                    let tBMin: float = geo.snap01(Math.Min(tA0onB, tA1onB))
-                    let tBMax: float = geo.snap01(Math.Max(tA0onB, tA1onB))
+                    let tA0onB: float = projectPointOntoSegment(segA.p0, segB)
+                    let tA1onB: float = projectPointOntoSegment(segA.p1, segB)
+                    let tBMin: float = Geometry.snap01(Math.Min(tA0onB, tA1onB))
+                    let tBMax: float = Geometry.snap01(Math.Max(tA0onB, tA1onB))
 
                     if tBMax < 0.0 || tBMin > 1.0 then
                         None
                     else
                         Some(
-                            SegmentTRangePairs(
+                            SegmentIntersection.FromTRangePairs(
                                 [| Math.Max(0.0, tAMin); Math.Max(0.0, tBMin) |],
                                 [| Math.Min(1.0, tAMax); Math.Min(1.0, tBMax) |]
                             )
-                            :> SegmentIntersection
                         )
         else
             let dx: float = a0.[0] - b0.[0]
             let dy: float = a0.[1] - b0.[1]
 
-            SegmentTValuePairsBuilder(allowOutOfRange, geo)
+            SegmentTValuePairsBuilder(allowOutOfRange)
                 .add((bdx * dy - bdy * dx) / axb, (adx * dy - ady * dx) / axb)
                 .``done``()
-
-    let segmentsIntersect(segA: Segment, segB: Segment, allowOutOfRange: bool) : SegmentIntersection option =
-        match segA, segB with
-        | (:? SegmentLine as segA), (:? SegmentLine as segB) ->
-            segmentLineIntersectSegmentLine(segA, segB, allowOutOfRange)
-        | _ ->
-            failwith "PolyBool: Unknown segment instance in segmentsIntersect"

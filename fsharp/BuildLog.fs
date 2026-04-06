@@ -9,7 +9,7 @@ open System
 // SPDX-License-Identifier: 0BSD
 //
 
-type ISegFill =
+type SegFill =
     {
         seg: obj
         fill: bool
@@ -17,7 +17,7 @@ type ISegFill =
 
 type BuildLogEntry =
     {
-        ``type``: string
+        typ: string
         data: obj
     }
 
@@ -36,9 +36,9 @@ type BuildLog() =
         with get () : float = curVertValue
         and set (value: float) : unit = curVertValue <- value
 
-    member this.push(``type``: string, data: obj) : unit =
+    member this.push(typ: string, data: obj) : unit =
         listValue.Add({
-            ``type`` = ``type``
+            typ = typ
             data = data
         })
 
@@ -85,10 +85,10 @@ type BuildLog() =
     member this.selected(segs: obj) : unit =
         this.push("selected", box {| segs = segs |})
 
-    member this.chainStart(sf: ISegFill, closed: bool) : unit =
+    member this.chainStart(sf: SegFill, closed: bool) : unit =
         this.push("chain_start", box {| sf = sf; closed = closed |})
 
-    member this.chainNew(sf: ISegFill, closed: bool) : unit =
+    member this.chainNew(sf: SegFill, closed: bool) : unit =
         this.push("chain_new", box {| sf = sf; closed = closed |})
 
     member this.chainMatch(index: int, closed: bool) : unit =
@@ -97,22 +97,22 @@ type BuildLog() =
     member this.chainClose(index: int, closed: bool) : unit =
         this.push("chain_close", box {| index = index; closed = closed |})
 
-    member this.chainAddHead(index: int, sf: ISegFill, closed: bool) : unit =
+    member this.chainAddHead(index: int, sf: SegFill, closed: bool) : unit =
         this.push("chain_add_head", box {| index = index; sf = sf; closed = closed |})
 
-    member this.chainAddTail(index: int, sf: ISegFill, closed: bool) : unit =
+    member this.chainAddTail(index: int, sf: SegFill, closed: bool) : unit =
         this.push("chain_add_tail", box {| index = index; sf = sf; closed = closed |})
 
-    member this.chainSimplifyHead(index: int, sf: ISegFill, closed: bool) : unit =
+    member this.chainSimplifyHead(index: int, sf: SegFill, closed: bool) : unit =
         this.push("chain_simp_head", box {| index = index; sf = sf; closed = closed |})
 
-    member this.chainSimplifyTail(index: int, sf: ISegFill, closed: bool) : unit =
+    member this.chainSimplifyTail(index: int, sf: SegFill, closed: bool) : unit =
         this.push("chain_simp_tail", box {| index = index; sf = sf; closed = closed |})
 
-    member this.chainSimplifyClose(index: int, sf: ISegFill, closed: bool) : unit =
+    member this.chainSimplifyClose(index: int, sf: SegFill, closed: bool) : unit =
         this.push("chain_simp_close", box {| index = index; sf = sf; closed = closed |})
 
-    member this.chainSimplifyJoin(index1: int, index2: int, sf: ISegFill, closed: bool) : unit =
+    member this.chainSimplifyJoin(index1: int, index2: int, sf: SegFill, closed: bool) : unit =
         this.push(
             "chain_simp_join",
             box {| index1 = index1; index2 = index2; sf = sf; closed = closed |}

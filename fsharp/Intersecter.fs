@@ -136,14 +136,14 @@ type ListBool<'T when 'T: equality>() =
                     node
         }
 
-type Intersecter(selfIntersection: bool, geo: Geometry, ?log: BuildLog) =
+type Intersecter(selfIntersection: bool,  ?log: BuildLog) =
     let eventsValue: ListBool<EventBool> = ListBool<EventBool>()
     let statusValue: ListBool<EventBool> = ListBool<EventBool>()
     let mutable currentPath: ResizeArray<SegmentBool> = ResizeArray<SegmentBool>()
     let logValue: BuildLog option = log
 
     member this.selfIntersection: bool = selfIntersection
-    member this.geo: Geometry = geo
+
     member this.events: ListBool<EventBool> = eventsValue
     member this.status: ListBool<EventBool> = statusValue
     member this.log: BuildLog option = logValue
@@ -165,11 +165,11 @@ type Intersecter(selfIntersection: bool, geo: Geometry, ?log: BuildLog) =
         b2: Vec2,
         bSeg: Segment
     ) : int =
-        let comp: int = this.geo.compareVec2(a1, b1)
+        let comp: int = Geometry.compareVec2(a1, b1)
 
         if comp <> 0 then
             comp
-        elif this.geo.isEqualVec2(a2, b2) then
+        elif Geometry.isEqualVec2(a2, b2) then
             0
         elif aStart <> bStart then
             if aStart then 1 else -1
@@ -232,14 +232,14 @@ type Intersecter(selfIntersection: bool, geo: Geometry, ?log: BuildLog) =
 
     member this.addLine(fromPoint: Vec2, toPoint: Vec2, ?primary: bool) : unit =
         let primary: bool = defaultArg primary true
-        let f: int = this.geo.compareVec2(fromPoint, toPoint)
+        let f: int = Geometry.compareVec2(fromPoint, toPoint)
 
         if f <> 0 then
             let startPoint: Vec2 = if f < 0 then fromPoint else toPoint
             let endPoint: Vec2 = if f < 0 then toPoint else fromPoint
             let seg: SegmentBool =
                 SegmentBool(
-                    SegmentLine(startPoint, endPoint, this.geo) :> Segment,
+                    Segment(startPoint, endPoint),
                     None,
                     false,
                     this.log
@@ -293,86 +293,86 @@ type Intersecter(selfIntersection: bool, geo: Geometry, ?log: BuildLog) =
         match SegmentFunctions.segmentsIntersect(seg1.data, seg2.data, false) with
         | None ->
             None
-        | Some (:? SegmentTRangePairs as i) ->
-            let tA1: float = i.tStart.[0]
-            let tB1: float = i.tStart.[1]
-            let tA2: float = i.tEnd.[0]
-            let tB2: float = i.tEnd.[1]
+        | Some intersection ->
+            match intersection.kind with
+            | TRangePairsKind ->
+                let tA1: float = intersection.tStart.[0]
+                let tB1: float = intersection.tStart.[1]
+                let tA2: float = intersection.tEnd.[0]
+                let tB2: float = intersection.tEnd.[1]
 
-            if
-                (tA1 = 1.0 && tA2 = 1.0 && tB1 = 0.0 && tB2 = 0.0)
-                || (tA1 = 0.0 && tA2 = 0.0 && tB1 = 1.0 && tB2 = 1.0)
-            then
-                None
-            elif tA1 = 0.0 && tA2 = 1.0 && tB1 = 0.0 && tB2 = 1.0 then
-                Some ev2
-            else
-                let a1: Vec2 = seg1.data.start()
-                let a2: Vec2 = seg1.data.``end``()
-                let b2: Vec2 = seg2.data.``end``()
-
-                if tA1 = 0.0 && tB1 = 0.0 then
-                    if tA2 = 1.0 then
-                        this.divideEvent(ev2, tB2, a2) |> ignore
-                    else
-                        this.divideEvent(ev1, tA2, b2) |> ignore
-
+                if
+                    (tA1 = 1.0 && tA2 = 1.0 && tB1 = 0.0 && tB2 = 0.0)
+                    || (tA1 = 0.0 && tA2 = 0.0 && tB1 = 1.0 && tB2 = 1.0)
+                then
+                    None
+                elif tA1 = 0.0 && tA2 = 1.0 && tB1 = 0.0 && tB2 = 1.0 then
                     Some ev2
-                elif tB1 > 0.0 && tB1 < 1.0 then
-                    if tA2 = 1.0 && tB2 = 1.0 then
-                        this.divideEvent(ev2, tB1, a1) |> ignore
-                    else
+                else
+                    let a1: Vec2 = seg1.data.start()
+                    let a2: Vec2 = seg1.data.``end``()
+                    let b2: Vec2 = seg2.data.``end``()
+
+                    if tA1 = 0.0 && tB1 = 0.0 then
                         if tA2 = 1.0 then
                             this.divideEvent(ev2, tB2, a2) |> ignore
                         else
                             this.divideEvent(ev1, tA2, b2) |> ignore
 
-                        this.divideEvent(ev2, tB1, a1) |> ignore
+                        Some ev2
+                    elif tB1 > 0.0 && tB1 < 1.0 then
+                        if tA2 = 1.0 && tB2 = 1.0 then
+                            this.divideEvent(ev2, tB1, a1) |> ignore
+                        else
+                            if tA2 = 1.0 then
+                                this.divideEvent(ev2, tB2, a2) |> ignore
+                            else
+                                this.divideEvent(ev1, tA2, b2) |> ignore
 
+                            this.divideEvent(ev2, tB1, a1) |> ignore
+
+                        None
+                    else
+                        None
+            | TValuePairsKind ->
+                if intersection.tValuePairs.Length <= 0 then
                     None
                 else
+                    let mutable minPair: Vec2 = intersection.tValuePairs.[0]
+                    let mutable j: int = 1
+
+                    let isEndpointPair(pair: Vec2) : bool =
+                        (pair.[0] = 0.0 && pair.[1] = 0.0)
+                        || (pair.[0] = 0.0 && pair.[1] = 1.0)
+                        || (pair.[0] = 1.0 && pair.[1] = 0.0)
+                        || (pair.[0] = 1.0 && pair.[1] = 1.0)
+
+                    while j < intersection.tValuePairs.Length && isEndpointPair minPair do
+                        minPair <- intersection.tValuePairs.[j]
+                        j <- j + 1
+
+                    let tA: float = minPair.[0]
+                    let tB: float = minPair.[1]
+
+                    let p: Vec2 =
+                        if tB = 0.0 then
+                            seg2.data.start()
+                        elif tB = 1.0 then
+                            seg2.data.``end``()
+                        elif tA = 0.0 then
+                            seg1.data.start()
+                        elif tA = 1.0 then
+                            seg1.data.``end``()
+                        else
+                            seg1.data.point(tA)
+
+                    if tA > 0.0 && tA < 1.0 then
+                        this.divideEvent(ev1, tA, p) |> ignore
+
+                    if tB > 0.0 && tB < 1.0 then
+                        this.divideEvent(ev2, tB, p) |> ignore
+
                     None
-        | Some (:? SegmentTValuePairs as i) ->
-            if i.tValuePairs.Length <= 0 then
-                None
-            else
-                let mutable minPair: Vec2 = i.tValuePairs.[0]
-                let mutable j: int = 1
-
-                let isEndpointPair(pair: Vec2) : bool =
-                    (pair.[0] = 0.0 && pair.[1] = 0.0)
-                    || (pair.[0] = 0.0 && pair.[1] = 1.0)
-                    || (pair.[0] = 1.0 && pair.[1] = 0.0)
-                    || (pair.[0] = 1.0 && pair.[1] = 1.0)
-
-                while j < i.tValuePairs.Length && isEndpointPair minPair do
-                    minPair <- i.tValuePairs.[j]
-                    j <- j + 1
-
-                let tA: float = minPair.[0]
-                let tB: float = minPair.[1]
-
-                let p: Vec2 =
-                    if tB = 0.0 then
-                        seg2.data.start()
-                    elif tB = 1.0 then
-                        seg2.data.``end``()
-                    elif tA = 0.0 then
-                        seg1.data.start()
-                    elif tA = 1.0 then
-                        seg1.data.``end``()
-                    else
-                        seg1.data.point(tA)
-
-                if tA > 0.0 && tA < 1.0 then
-                    this.divideEvent(ev1, tA, p) |> ignore
-
-                if tB > 0.0 && tB < 1.0 then
-                    this.divideEvent(ev2, tB, p) |> ignore
-
-                None
-        | Some _ ->
-            failwith "PolyBool: Unknown intersection type"
 
     member this.calculate() : SegmentBool[] =
         let segments: ResizeArray<SegmentBool> = ResizeArray<SegmentBool>()

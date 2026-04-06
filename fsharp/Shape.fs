@@ -16,16 +16,16 @@ type private ShapeResultState =
     | Seg of segments: SegmentBool[]
     | Reg of segments: SegmentBool[] * regions: Segment[][]
 
-type internal Shape(geo: Geometry, segments: SegmentBool[] option, log: BuildLog option) =
+type internal Shape( segments: SegmentBool[] option, log: BuildLog option) =
     let mutable pathState: PathState = BeginPath
     let mutable resultState: ShapeResultState =
         match segments with
         | Some initialSegments ->
             Seg initialSegments
         | None ->
-            New(Intersecter(true, geo, ?log = log))
+            New(Intersecter(true,  ?log = log))
 
-    member this.geo: Geometry = geo
+
     member this.log: BuildLog option = log
 
     member this.beginPath() : Shape =
@@ -75,7 +75,7 @@ type internal Shape(geo: Geometry, segments: SegmentBool[] option, log: BuildLog
         match resultState with
         | New selfIntersect ->
             match pathState with
-            | MoveTo(start, current) when not (this.geo.isEqualVec2(start, current)) ->
+            | MoveTo(start, current) when not (Geometry.isEqualVec2(start, current)) ->
                 selfIntersect.addLine(current, start)
                 pathState <- MoveTo(start, start)
             | _ ->
@@ -111,15 +111,15 @@ type internal Shape(geo: Geometry, segments: SegmentBool[] option, log: BuildLog
             regions
         | _ ->
             let calculatedSegments: SegmentBool[] = this.selfIntersect()
-            let regions: Segment[][] = SegmentChainer.segmentChainer(calculatedSegments, this.geo, this.log)
+            let regions: Segment[][] = SegmentChainer.segmentChainer(calculatedSegments, this.log)
             resultState <- Reg(calculatedSegments, regions)
             regions
 
-    member this.output<'T when 'T :> IPolyBoolReceiver>(receiver: 'T) : 'T =
-        SegmentChainer.segmentsToReceiver(this.segments(), this.geo, receiver)
+    member this.output(receiver: PolyBoolReceiver) : PolyBoolReceiver =
+        SegmentChainer.segmentsToReceiver(this.segments(), receiver)
 
     member this.combine(shape: Shape) : ShapeCombined =
-        let intersection: Intersecter = Intersecter(false, this.geo, ?log = this.log)
+        let intersection: Intersecter = Intersecter(false, ?log = this.log)
 
         for seg: SegmentBool in this.selfIntersect() do
             intersection.addSegment(IntersecterFunctions.copySegmentBool(seg, this.log), true) |> ignore
@@ -127,24 +127,24 @@ type internal Shape(geo: Geometry, segments: SegmentBool[] option, log: BuildLog
         for seg: SegmentBool in shape.selfIntersect() do
             intersection.addSegment(IntersecterFunctions.copySegmentBool(seg, this.log), false) |> ignore
 
-        ShapeCombined(intersection.calculate(), this.geo, this.log)
+        ShapeCombined(intersection.calculate(), this.log)
 
-and internal ShapeCombined(segments: SegmentBool[], geo: Geometry, log: BuildLog option) =
-    member this.geo: Geometry = geo
+and internal ShapeCombined(segments: SegmentBool[],  log: BuildLog option) =
+
     member this.log: BuildLog option = log
     member this.segmentsData: SegmentBool[] = segments
 
     member this.union() : Shape =
-        Shape(this.geo, Some(SegmentSelector.union(this.segmentsData, this.log)), this.log)
+        Shape(Some(SegmentSelector.union(this.segmentsData, this.log)), this.log)
 
     member this.intersect() : Shape =
-        Shape(this.geo, Some(SegmentSelector.intersect(this.segmentsData, this.log)), this.log)
+        Shape(Some(SegmentSelector.intersect(this.segmentsData, this.log)), this.log)
 
     member this.difference() : Shape =
-        Shape(this.geo, Some(SegmentSelector.difference(this.segmentsData, this.log)), this.log)
+        Shape(Some(SegmentSelector.difference(this.segmentsData, this.log)), this.log)
 
     member this.differenceRev() : Shape =
-        Shape(this.geo, Some(SegmentSelector.differenceRev(this.segmentsData, this.log)), this.log)
+        Shape(Some(SegmentSelector.differenceRev(this.segmentsData, this.log)), this.log)
 
     member this.xor() : Shape =
-        Shape(this.geo, Some(SegmentSelector.xor(this.segmentsData, this.log)), this.log)
+        Shape(Some(SegmentSelector.xor(this.segmentsData, this.log)), this.log)

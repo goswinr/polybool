@@ -124,482 +124,46 @@ printfn "%A" result
 //   inverted = false }
 ```
 
-Using the Polygonal API:
+Public F# API note:
 
-```fsharp
-open PolyBool
-
-let polybool = PolyBoolExports.polybool
-
-let poly1 =
-    {
-        regions =
-            [|
-                [|
-                    [| 50.0; 50.0 |]
-                    [| 150.0; 150.0 |]
-                    [| 190.0; 50.0 |]
-                |]
-                [|
-                    [| 130.0; 50.0 |]
-                    [| 290.0; 150.0 |]
-                    [| 290.0; 50.0 |]
-                |]
-            |]
-        inverted = false
-    }
-
-let poly2 =
-    {
-        regions =
-            [|
-                [|
-                    [| 110.0; 20.0 |]
-                    [| 110.0; 110.0 |]
-                    [| 20.0; 20.0 |]
-                |]
-                [|
-                    [| 130.0; 170.0 |]
-                    [| 130.0; 20.0 |]
-                    [| 260.0; 20.0 |]
-                    [| 260.0; 170.0 |]
-                |]
-            |]
-        inverted = false
-    }
-
-let segs1 = polybool.segments(poly1)
-let segs2 = polybool.segments(poly2)
-let combined = polybool.combine(segs1, segs2)
-let segs3 = polybool.selectIntersect(combined)
-let result = polybool.polygon(segs3)
-
-printfn "%A" result
-```
-
-Using the Instructional API:
-
-```fsharp
-open PolyBool
-
-let polybool = PolyBoolExports.polybool
-
-let shape1 =
-    polybool
-        .shape()
-        .beginPath()
-        .moveTo(50.0, 50.0)
-        .lineTo(150.0, 150.0)
-        .lineTo(190.0, 50.0)
-        .closePath()
-        .moveTo(130.0, 50.0)
-        .lineTo(290.0, 150.0)
-        .lineTo(290.0, 50.0)
-        .closePath()
-
-let shape2 =
-    polybool
-        .shape()
-        .beginPath()
-        .moveTo(110.0, 20.0)
-        .lineTo(110.0, 110.0)
-        .lineTo(20.0, 20.0)
-        .closePath()
-        .moveTo(130.0, 170.0)
-        .lineTo(130.0, 20.0)
-        .lineTo(260.0, 20.0)
-        .lineTo(260.0, 170.0)
-        .closePath()
-
-let receiver =
-    { new IPolyBoolReceiver with
-        member _.beginPath() = printfn "beginPath"
-        member _.moveTo(x, y) = printfn $"moveTo {x} {y}"
-        member _.lineTo(x, y) = printfn $"lineTo {x} {y}"
-
-        member _.closePath() = printfn "closePath" }
-
-shape1
-    .combine(shape2)
-    .intersect()
-    .output(receiver)
-|> ignore
-```
+The current F# port publicly exposes only the simplified polygonal API shown above.
+The lower polygon/shape layers from the original TypeScript implementation still
+exist inside the port, but they are internal implementation details rather than a
+supported public surface.
 
 # API Design
 
-There are three different APIs, each of which use the same underlying algorithms:
+The original TypeScript project is layered, and the F# port still follows the
+same internal pipeline, but the supported public surface is intentionally much
+smaller: polygon-only boolean operations over `Vec2[][]` or `Vec2 list list`.
 
-1. Simplified Polygonal API
-2. Polygonal API
-3. Instructional API
+The public entry points are the `PolyBool` overloads for:
 
-The Simplified Polygonal API is implemented on top of the Polygonal API, and the Polygonal API is
-implemented on top of the Instructional API.
+1. `union`
+2. `intersect`
+3. `difference`
+4. `differenceRev`
+5. `xor`
 
-The reason for multiple APIs is to maintain backwards compatibility and to make it easier to use.
+Each vertex must contain exactly two coordinates, `[| x; y |]`. Values with
+more than two coordinates are rejected.
 
-# Simplified Polygonal API
+You can also provide optional infrastructure objects when constructing
+`PolyBool`:
 
 ```fsharp
 open PolyBool
 
-let polybool = PolyBoolExports.polybool
-
-let unionPoly = polybool.union(poly1, poly2)
-let intersectPoly = polybool.intersect(poly1, poly2)
-let differencePoly = polybool.difference(poly1, poly2) // poly1 - poly2
-let differenceRevPoly = polybool.differenceRev(poly1, poly2) // poly2 - poly1
-let xorPoly = polybool.xor(poly1, poly2)
-```
-
-Where `poly1`, `poly2`, and the return value are `Polygon` records, in the format of:
-
-```fsharp
-let polygon: Polygon =
-    {
-        regions =
-            [|
-                [|
-                    [| 50.0; 50.0 |]
-                    [| 150.0; 150.0 |]
-                    [| 190.0; 50.0 |]
-                |]
-                [|
-                    [| 130.0; 50.0 |]
-                    [| 290.0; 150.0 |]
-                    [| 290.0; 50.0 |]
-                |]
-            |]
-        inverted = false
-    }
-```
-
-Each vertex must contain exactly two coordinates, `[| x; y |]`. Values with
-more than two coordinates are rejected by `polybool.segments(...)`.
-
-# Polygonal API
-
-```fsharp
-let segments1 = polybool.segments(polygon1)
-let segments2 = polybool.segments(polygon2)
-let combined = polybool.combine(segments1, segments2)
-let unionSegments = polybool.selectUnion(combined)
-let intersectSegments = polybool.selectIntersect(combined)
-let differenceSegments = polybool.selectDifference(combined)
-let differenceRevSegments = polybool.selectDifferenceRev(combined)
-let xorSegments = polybool.selectXor(combined)
-let polygon = polybool.polygon(unionSegments)
-```
-
-Depending on your needs, it might be more efficient to construct your own
-sequence of operations using the Polygonal API. Note that `polybool.union`,
-`polybool.intersect`, etc, are just thin wrappers for convenience.
-
-There are three types of objects you will encounter in the Polygonal API:
-
-1. Polygons (discussed above, this is a list of regions and an `inverted` flag)
-2. Segments
-3. Combined Segments
-
-The basic flow chart of the API is:
-
-![API Flow Chart](../flowchart.png)
-
-You start by converting Polygons to Segments using `polybool.segments(poly)`.
-
-You convert Segments to Combined Segments using `polybool.combine(seg1, seg2)`.
-
-You select the resulting Segments from the Combined Segments using one of the
-selection operators `polybool.selectUnion(combined)`,
-`polybool.selectIntersect(combined)`, etc. These selection functions return
-Segments.
-
-Once you're done, you convert the Segments back to Polygons using
-`polybool.polygon(segments)`.
-
-Each transition is costly, so you want to navigate wisely. The selection
-transition is the least costly.
-
-## Advanced Example 1
-
-Suppose you wanted to union a list of polygons together. The naive way to do it
-would be:
-
-```fsharp
-// works but not efficient
-let mutable result = polygons.[0]
-
-for i = 1 to polygons.Length - 1 do
-    result <- polybool.union(result, polygons.[i])
-
-result
-```
-
-Instead, it's more efficient to use the Polygonal API directly, like this:
-
-```fsharp
-// works AND efficient
-let mutable segments = polybool.segments(polygons.[0])
-
-for i = 1 to polygons.Length - 1 do
-    let seg2 = polybool.segments(polygons.[i])
-    let comb = polybool.combine(segments, seg2)
-    segments <- polybool.selectUnion(comb)
-
-polybool.polygon(segments)
-```
-
-## Advanced Example 2
-
-Suppose you want to calculate all operations on two polygons. The naive way to
-do it would be:
-
-```fsharp
-// works but not efficient
-let result =
-    {| union = polybool.union(poly1, poly2)
-       intersect = polybool.intersect(poly1, poly2)
-       difference = polybool.difference(poly1, poly2)
-       differenceRev = polybool.differenceRev(poly1, poly2)
-       xor = polybool.xor(poly1, poly2) |}
-```
-
-Instead, it's more efficient to use the Polygonal API directly, like this:
-
-```fsharp
-// works AND efficient
-let seg1 = polybool.segments(poly1)
-let seg2 = polybool.segments(poly2)
-let comb = polybool.combine(seg1, seg2)
-
-let result =
-    {| union = polybool.polygon(polybool.selectUnion(comb))
-       intersect = polybool.polygon(polybool.selectIntersect(comb))
-       difference = polybool.polygon(polybool.selectDifference(comb))
-       differenceRev = polybool.polygon(polybool.selectDifferenceRev(comb))
-       xor = polybool.polygon(polybool.selectXor(comb)) |}
-```
-
-## Advanced Example 3
-
-As an added bonus, just going from Polygon to Segments and back performs
-simplification on the polygon.
-
-Suppose you have garbage polygon data and just want to clean it up. The naive
-way to do it would be:
-
-```fsharp
-// union the polygon with nothing in order to clean up the data
-// works but not efficient
-let cleaned =
-    polybool.union(
-        polygon,
-        {
-            regions = [||]
-            inverted = false
-        }
+let polybool =
+    PolyBool(
+        geo = Geometry(0.000001),
+        log = BuildLog()
     )
 ```
 
-Instead, skip the combination and selection phase:
-
-```fsharp
-// works AND efficient
-let cleaned = polybool.polygon(polybool.segments(polygon))
-```
-
-# Instructional API
-
-The Instructional API does not have an intermediate data format (like the Polygon from before), and
-does not support an `inverted` flag.
-
-Instead, the Instructional API is modeled after the
-[CanvasRenderingContext2D](https://developer.mozilla.org/en-US/docs/Web/API/CanvasRenderingContext2D)
-API, but the F# port only exposes the polygonal subset.
-
-Shapes are created using `beginPath`, `moveTo`, `lineTo`, and `closePath`, then
-combined together, operated on, and output to a _receiver_.
-
-The receiver is an object with `beginPath`, `moveTo`, `lineTo`, and `closePath`
-defined, and those methods are called in order to output the result.
-
-Unlike the other APIs, the Instructional API supports _open paths_, which can be used by skipping
-the call to `closePath` at the end. This could be useful for intersecting a rectangle with a
-line segment, for example.
-
-```fsharp
-type IPolyBoolReceiver =
-    abstract beginPath: unit -> unit
-    abstract moveTo: float * float -> unit
-    abstract lineTo: float * float -> unit
-    abstract closePath: unit -> unit
-```
-
-## Shapes
-
-The first step is to create shapes:
-
-```fsharp
-let shape =
-    polybool
-        .shape()
-        .beginPath()
-        .moveTo(50.0, 50.0)
-        .lineTo(150.0, 150.0)
-        .lineTo(190.0, 50.0)
-        .closePath()
-        .moveTo(130.0, 50.0)
-        .lineTo(290.0, 150.0)
-        .lineTo(290.0, 50.0)
-        .closePath()
-```
-
-Note that shapes can have multiple regions by calling `moveTo` more than once. Shapes support
-open and closed paths, so calling `closePath` is required if the path is filled.
-
-```fsharp
-type Shape with
-    member beginPath: unit -> Shape
-    member moveTo: float * float -> Shape
-    member lineTo: float * float -> Shape
-    member closePath: unit -> Shape
-```
-
-## Combining Shapes
-
-Once you have multiple shapes, you can combine them:
-
-```fsharp
-let combinedShape1 = shape1.combine(shape2)
-let combinedShape2 = shape1.combine(shape3)
-```
-
-Notice that you can use shapes in multiple operations, but once you use a shape in an operation,
-you can't add more line segments to it.
-
-```fsharp
-type Shape with
-    member combine: Shape -> ShapeCombined
-```
-
-## Performing an Operation
-
-Once you have a combined shape, you can generate new shapes by performing a boolean operation:
-
-```fsharp
-let intersectionShape = combinedShape1.intersect()
-let unionShape = combinedShape1.union()
-```
-
-Notice that you can use a combined shape more than once, to produce different boolean operations.
-
-```fsharp
-type ShapeCombined with
-    member union: unit -> Shape
-    member intersect: unit -> Shape
-    member difference: unit -> Shape
-    member differenceRev: unit -> Shape
-    member xor: unit -> Shape
-```
-
-## Outputting Results
-
-_Any_ shape can be output to a _receiver_:
-
-```fsharp
-shape.output(receiver) |> ignore
-```
-
-Notice that `shape` could be the result of a boolean operation, but it doesn't have to be.
-
-```fsharp
-type Shape with
-    member output<'T when 'T :> IPolyBoolReceiver> : receiver: 'T -> 'T
-```
-
-The `receiver` object is returned.
-
-## Implementing Inversion
-
-If you need to perform logic on inverted shapes like the Polygonal API supports, a key observation
-is that you can represent the same result by shuffling around inversion flags and choosing the right
-operation.
-
-For example, if you are intersecting two shapes, and the first one is inverted, then that is
-equivalent to the `differenceRev` operation.
-
-This is how inversion is supported in the Polygonal API, even though it is built on top of the
-Instructional API which does not support inversion.
-
-Please check the source code to see how inversion is calculated. Here is intersection, for example:
-
-```fsharp
-member this.selectIntersect(combined: CombinedSegments) : Segments =
-    {
-        shape =
-            if combined.inverted1 then
-                if combined.inverted2 then
-                    combined.shape.union()
-                else
-                    combined.shape.differenceRev()
-            elif combined.inverted2 then
-                combined.shape.difference()
-            else
-                combined.shape.intersect()
-        inverted = combined.inverted1 && combined.inverted2
-    }
-```
-
-Essentially, this represents observations like `intersect(~A, ~B) = ~union(A, B)`,
-[etc](https://en.wikipedia.org/wiki/De_Morgan's_laws).
-
-## Advanced Example 1
-
-How to union a list of shapes together:
-
-```fsharp
-let mutable result = shapes.[0]
-
-for i = 1 to shapes.Length - 1 do
-    result <- result.combine(shapes.[i]).union()
-
-result.output(receiver) |> ignore
-```
-
-## Advanced Example 2
-
-How to calculate all operations on two shapes:
-
-```fsharp
-let combined = shape1.combine(shape2)
-
-combined.union().output(receiverUnion) |> ignore
-combined.intersect().output(receiverIntersect) |> ignore
-combined.difference().output(receiverDifference) |> ignore
-combined.differenceRev().output(receiverDifferenceRev) |> ignore
-combined.xor().output(receiverXor) |> ignore
-```
-
-## Advanced Example 3
-
-As an added bonus, you can simplify shapes by outputting them directly.
-
-Suppose you have garbage polygon data and just want to clean it up. The naive
-way to do it would be:
-
-```fsharp
-// union the shape with nothing in order to clean up the data
-// works but not efficient
-shape1.combine(polybool.shape()).union().output(receiver) |> ignore
-```
-
-Instead, skip the combination and operation:
-
-```fsharp
-// works AND efficient
-shape1.output(receiver) |> ignore
-```
+Internally, the port still uses segment construction, intersection handling,
+and path reconstruction to mirror the original algorithm. Those lower layers are
+kept as implementation details rather than a supported public API.
 
 # Epsilon
 
@@ -636,7 +200,7 @@ open PolyBool
 
 let polybool =
     PolyBool(
-        geo = (GeometryEpsilon(0.000001) :> Geometry)
+        geo = Geometry(0.000001)
     )
 ```
 

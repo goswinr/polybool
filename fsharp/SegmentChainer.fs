@@ -17,13 +17,13 @@ module SegmentChainer =
             mutable matchesPt1: bool
         }
 
-    type ISegsFill =
+    type SegsFill =
         {
             mutable segs: ResizeArray<Segment>
             mutable fill: bool
         }
 
-    let private segFill(seg: Segment, fill: bool) : ISegFill =
+    let private segFill(seg: Segment, fill: bool) : SegFill =
         {
             seg = box seg
             fill = fill
@@ -35,30 +35,28 @@ module SegmentChainer =
         else
             None
 
-    let joinLines(seg1: SegmentLine, seg2: SegmentLine, geo: Geometry) : SegmentLine option =
-        if geo.isCollinear(seg1.p0, seg1.p1, seg2.p1) then
-            Some(SegmentLine(seg1.p0, seg2.p1, geo))
+    let joinLines(seg1: Segment, seg2: Segment) : Segment option =
+        if Geometry.isCollinear(seg1.p0, seg1.p1, seg2.p1) then
+            Some(Segment(seg1.p0, seg2.p1))
         else
             None
 
-    let joinSegments(seg1: Segment option, seg2: Segment option, geo: Geometry) : Segment option =
+    let joinSegments(seg1: Segment option, seg2: Segment option) : Segment option =
         match seg1, seg2 with
-        | Some (:? SegmentLine as seg1), Some (:? SegmentLine as seg2) when not (obj.ReferenceEquals(seg1, seg2)) ->
-            joinLines(seg1, seg2, geo) |> Option.map (fun seg -> seg :> Segment)
-        | Some _, Some _ ->
-            failwith "PolyBool: Unknown segment instance"
+        | Some seg1, Some seg2 when not (obj.ReferenceEquals(seg1, seg2)) ->
+            joinLines(seg1, seg2)
         | _ ->
             None
 
-    let segmentChainer(segments: SegmentBool[], geo: Geometry, log: BuildLog option) : Segment[][] =
-        let closedChains: ResizeArray<ISegsFill> = ResizeArray<ISegsFill>()
-        let openChains: ResizeArray<ISegsFill> = ResizeArray<ISegsFill>()
+    let segmentChainer(segments: SegmentBool[],  log: BuildLog option) : Segment[][] =
+        let closedChains: ResizeArray<SegsFill> = ResizeArray<SegsFill>()
+        let openChains: ResizeArray<SegsFill> = ResizeArray<SegsFill>()
         let regions: ResizeArray<Segment[]> = ResizeArray<Segment[]>()
 
         for segb: SegmentBool in segments do
             let mutable seg: Segment = segb.data
             let closed: bool = segb.closed
-            let chains: ResizeArray<ISegsFill> = if closed then closedChains else openChains
+            let chains: ResizeArray<SegsFill> = if closed then closedChains else openChains
             let pt1: Vec2 = seg.start()
             let pt2: Vec2 = seg.``end``()
 
@@ -77,7 +75,7 @@ module SegmentChainer =
 
                 newChain
 
-            if geo.isEqualVec2(pt1, pt2) then
+            if Geometry.isEqualVec2(pt1, pt2) then
                 Console.WriteLine(
                     "PolyBool: Warning: Zero-length segment detected; your epsilon is probably too small or too large"
                 )
@@ -109,16 +107,16 @@ module SegmentChainer =
                     let head: Vec2 = chain.[0].start()
                     let tail: Vec2 = chain.[chain.Count - 1].``end``()
 
-                    if geo.isEqualVec2(head, pt1) then
+                    if Geometry.isEqualVec2(head, pt1) then
                         if setMatch(i, true, true) then
                             ()
-                    elif geo.isEqualVec2(head, pt2) then
+                    elif Geometry.isEqualVec2(head, pt2) then
                         if setMatch(i, true, false) then
                             ()
-                    elif geo.isEqualVec2(tail, pt1) then
+                    elif Geometry.isEqualVec2(tail, pt1) then
                         if setMatch(i, false, true) then
                             ()
-                    elif geo.isEqualVec2(tail, pt2) then
+                    elif Geometry.isEqualVec2(tail, pt2) then
                         if setMatch(i, false, false) then
                             ()
 
@@ -153,7 +151,7 @@ module SegmentChainer =
                     if firstMatch.matchesHead then
                         let next: Segment option = tryGet(chain, 1)
 
-                        match joinSegments(Some seg, next, geo) with
+                        match joinSegments(Some seg, next) with
                         | Some newSeg ->
                             chain.RemoveAt(0)
                             chain.[0] <- newSeg
@@ -163,7 +161,7 @@ module SegmentChainer =
                     else
                         let next: Segment option = tryGet(chain, chain.Count - 2)
 
-                        match joinSegments(next, Some seg, geo) with
+                        match joinSegments(next, Some seg) with
                         | Some newSeg ->
                             chain.RemoveAt(chain.Count - 1)
                             chain.[chain.Count - 1] <- newSeg
@@ -176,7 +174,7 @@ module SegmentChainer =
                         let mutable segS: Segment = finalChain.[0]
                         let mutable segE: Segment = finalChain.[finalChain.Count - 1]
 
-                        if finalChain.Count > 0 && geo.isEqualVec2(segS.start(), segE.``end``()) then
+                        if finalChain.Count > 0 && Geometry.isEqualVec2(segS.start(), segE.``end``()) then
                             let mutable winding: float = 0.0
                             let mutable last: Vec2 = finalChain.[0].start()
 
@@ -192,7 +190,7 @@ module SegmentChainer =
                                 segS <- finalChain.[0]
                                 segE <- finalChain.[finalChain.Count - 1]
 
-                            match joinSegments(Some segE, Some segS, geo) with
+                            match joinSegments(Some segE, Some segS) with
                             | Some newStart ->
                                 finalChain.RemoveAt(finalChain.Count - 1)
                                 finalChain.[0] <- newStart
@@ -214,7 +212,7 @@ module SegmentChainer =
 
                         let next: Segment option = tryGet(chain1, chain1.Count - 2)
 
-                        match joinSegments(next, Some seg, geo) with
+                        match joinSegments(next, Some seg) with
                         | Some newEnd ->
                             chain1.RemoveAt(chain1.Count - 1)
                             chain1.[chain1.Count - 1] <- newEnd
@@ -225,7 +223,7 @@ module SegmentChainer =
                         let tail: Segment option = tryGet(chain1, chain1.Count - 1)
                         let head: Segment option = tryGet(chain2, 0)
 
-                        match joinSegments(tail, head, geo) with
+                        match joinSegments(tail, head) with
                         | Some newJoin ->
                             chain2.RemoveAt(0)
                             chain1.[chain1.Count - 1] <- newJoin
@@ -293,11 +291,11 @@ module SegmentChainer =
 
         regions.ToArray()
 
-    let segmentsToReceiver<'T when 'T :> IPolyBoolReceiver>(
+    let internal segmentsToReceiver(
         segments: Segment[][],
-        geo: Geometry,
-        receiver: 'T
-    ) : 'T =
+        
+        receiver: PolyBoolReceiver
+    ) : PolyBoolReceiver =
         receiver.beginPath()
 
         for region: Segment[] in segments do
@@ -309,17 +307,13 @@ module SegmentChainer =
                         let p0: Vec2 = seg.start()
                         receiver.moveTo(p0.[0], p0.[1])
 
-                    match seg with
-                    | :? SegmentLine as seg ->
-                        let p1: Vec2 = seg.p1
-                        receiver.lineTo(p1.[0], p1.[1])
-                    | _ ->
-                        failwith "PolyBool: Unknown segment instance"
+                    let p1: Vec2 = seg.p1
+                    receiver.lineTo(p1.[0], p1.[1])
 
                 let first: Segment = region.[0]
                 let last: Segment = region.[region.Length - 1]
 
-                if geo.isEqualVec2(first.start(), last.``end``()) then
+                if Geometry.isEqualVec2(first.start(), last.``end``()) then
                     receiver.closePath()
 
         receiver

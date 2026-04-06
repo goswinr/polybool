@@ -26,8 +26,8 @@ type internal CombinedSegments =
         inverted2: bool
     }
 
-type PolyBool(?geo: Geometry, ?log: BuildLog) =
-    let geoValue: Geometry = defaultArg geo (GeometryEpsilon() :> Geometry)
+type PolyBool(? log: BuildLog) =
+
     let mutable log: BuildLog option = log
 
     let polygonFromRegions(regions: Vec2[][]) : Polygon =
@@ -45,20 +45,19 @@ type PolyBool(?geo: Geometry, ?log: BuildLog) =
     let regionListsFromPolygon(poly: Polygon) : Vec2 list list =
         poly.regions |> Array.map Array.toList |> Array.toList
 
-    member this.geo: Geometry = geoValue
+
 
     member this.buildLog(enable: bool) : ResizeArray<BuildLogEntry> option =
         log <- if enable then Some(BuildLog()) else None
         log |> Option.map (fun log -> log.list)
 
     member private this.segmentsOfPolygon(poly: Polygon) : Segments =
-        let shape: Shape = Shape(this.geo, None, log)
+        let shape: Shape = Shape(None, log)
         shape.beginPath() |> ignore
 
         let asVertex(point: Vec2) : Vec2 =
             if point.Length <> 2 then
                 failwith "PolyBool: Invalid point in region; only polygon vertices are supported"
-
             point
 
         for region: Vec2[] in poly.regions do
@@ -156,16 +155,10 @@ type PolyBool(?geo: Geometry, ?log: BuildLog) =
         let regions: ResizeArray<ResizeArray<Vec2>> = ResizeArray<ResizeArray<Vec2>>()
 
         let receiver =
-            { new IPolyBoolReceiver with
-                member _.beginPath() : unit = ()
-
-                member _.moveTo(_: float, _: float) : unit =
-                    regions.Add(ResizeArray<Vec2>())
-
-                member _.lineTo(x: float, y: float) : unit =
-                    regions.[regions.Count - 1].Add([| x; y |])
-
-                member _.closePath() : unit = () }
+            PolyBoolReceiver(
+                moveTo = (fun (_: float, _: float) -> regions.Add(ResizeArray<Vec2>())),
+                lineTo = (fun (x: float, y: float) -> regions.[regions.Count - 1].Add([| x; y |]))
+            )
 
         segments.shape.output(receiver) |> ignore
 
