@@ -36,13 +36,13 @@ type PolyBool(? log: BuildLog) =
             inverted = false
         }
 
-    member this.buildLog(enable: bool) : ResizeArray<BuildLogEntry> option =
+    member this.BuildLog(enable: bool) : ResizeArray<BuildLogEntry> option =
         log <- if enable then Some(BuildLog()) else None
-        log |> Option.map (fun log -> log.list)
+        log |> Option.map (fun log -> log.List)
 
-    member private this.segmentsOfPolygon(poly: Polygon) : Segments =
+    member private this.SegmentsOfPolygon(poly: Polygon) : Segments =
         let shape: Shape = Shape(None, log)
-        shape.beginPath() |> ignore
+        shape.BeginPath() |> ignore
 
         let asVertex(point: Vec2) : Vec2 =
             if point.Length <> 2 then
@@ -54,93 +54,93 @@ type PolyBool(? log: BuildLog) =
                 failwith "PolyBool: Regions must contain at least one vertex"
 
             let lastPoint: Vec2 = asVertex region.[region.Length - 1]
-            shape.moveTo(lastPoint.[0], lastPoint.[1]) |> ignore
+            shape.MoveTo(lastPoint.[0], lastPoint.[1]) |> ignore
 
             for p: Vec2 in region do
                 let point: Vec2 = asVertex p
-                shape.lineTo(point.[0], point.[1]) |> ignore
+                shape.LineTo(point.[0], point.[1]) |> ignore
 
-            shape.closePath() |> ignore
+            shape.ClosePath() |> ignore
 
         {
             shape = shape
             inverted = poly.inverted
         }
 
-    member private this.combineSegments(segments1: Segments, segments2: Segments) : CombinedSegments =
+    member private this.CombineSegments(segments1: Segments, segments2: Segments) : CombinedSegments =
         {
-            shape = segments1.shape.combine(segments2.shape)
+            shape = segments1.shape.Combine(segments2.shape)
             inverted1 = segments1.inverted
             inverted2 = segments2.inverted
         }
 
-    member private this.selectUnionSegments(combined: CombinedSegments) : Segments =
+    member private this.SelectUnionSegments(combined: CombinedSegments) : Segments =
         {
             shape =
                 if combined.inverted1 then
                     if combined.inverted2 then
-                        combined.shape.intersect()
+                        combined.shape.Intersect()
                     else
-                        combined.shape.difference()
+                        combined.shape.Difference()
                 elif combined.inverted2 then
-                    combined.shape.differenceRev()
+                    combined.shape.DifferenceRev()
                 else
-                    combined.shape.union()
+                    combined.shape.Union()
             inverted = combined.inverted1 || combined.inverted2
         }
 
-    member private this.selectIntersectSegments(combined: CombinedSegments) : Segments =
+    member private this.SelectIntersectSegments(combined: CombinedSegments) : Segments =
         {
             shape =
                 if combined.inverted1 then
                     if combined.inverted2 then
-                        combined.shape.union()
+                        combined.shape.Union()
                     else
-                        combined.shape.differenceRev()
+                        combined.shape.DifferenceRev()
                 elif combined.inverted2 then
-                    combined.shape.difference()
+                    combined.shape.Difference()
                 else
-                    combined.shape.intersect()
+                    combined.shape.Intersect()
             inverted = combined.inverted1 && combined.inverted2
         }
 
-    member private this.selectDifferenceSegments(combined: CombinedSegments) : Segments =
+    member private this.SelectDifferenceSegments(combined: CombinedSegments) : Segments =
         {
             shape =
                 if combined.inverted1 then
                     if combined.inverted2 then
-                        combined.shape.differenceRev()
+                        combined.shape.DifferenceRev()
                     else
-                        combined.shape.union()
+                        combined.shape.Union()
                 elif combined.inverted2 then
-                    combined.shape.intersect()
+                    combined.shape.Intersect()
                 else
-                    combined.shape.difference()
+                    combined.shape.Difference()
             inverted = combined.inverted1 && not combined.inverted2
         }
 
-    member private this.selectDifferenceRevSegments(combined: CombinedSegments) : Segments =
+    member private this.SelectDifferenceRevSegments(combined: CombinedSegments) : Segments =
         {
             shape =
                 if combined.inverted1 then
                     if combined.inverted2 then
-                        combined.shape.difference()
+                        combined.shape.Difference()
                     else
-                        combined.shape.intersect()
+                        combined.shape.Intersect()
                 elif combined.inverted2 then
-                    combined.shape.union()
+                    combined.shape.Union()
                 else
-                    combined.shape.differenceRev()
+                    combined.shape.DifferenceRev()
             inverted = not combined.inverted1 && combined.inverted2
         }
 
-    member private this.selectXorSegments(combined: CombinedSegments) : Segments =
+    member private this.SelectXorSegments(combined: CombinedSegments) : Segments =
         {
-            shape = combined.shape.xor()
+            shape = combined.shape.Xor()
             inverted = combined.inverted1 <> combined.inverted2
         }
 
-    member private this.polygonOfSegments(segments: Segments) : Polygon =
+    member private this.PolygonOfSegments(segments: Segments) : Polygon =
         let regions: ResizeArray<ResizeArray<Vec2>> = ResizeArray<ResizeArray<Vec2>>()
 
         let receiver =
@@ -149,76 +149,76 @@ type PolyBool(? log: BuildLog) =
                 lineTo = (fun (x: float, y: float) -> regions.[regions.Count - 1].Add([| x; y |]))
             )
 
-        segments.shape.output(receiver) |> ignore
+        segments.shape.Output(receiver) |> ignore
 
         {
             regions = regions |> Seq.map (fun region -> region.ToArray()) |> Array.ofSeq
             inverted = segments.inverted
         }
 
-    member private this.unionPolygon(poly1: Polygon, poly2: Polygon) : Polygon =
-        let seg1: Segments = this.segmentsOfPolygon(poly1)
-        let seg2: Segments = this.segmentsOfPolygon(poly2)
-        let comb: CombinedSegments = this.combineSegments(seg1, seg2)
-        let seg3: Segments = this.selectUnionSegments(comb)
-        this.polygonOfSegments(seg3)
+    member private this.UnionPolygon(poly1: Polygon, poly2: Polygon) : Polygon =
+        let seg1: Segments = this.SegmentsOfPolygon(poly1)
+        let seg2: Segments = this.SegmentsOfPolygon(poly2)
+        let comb: CombinedSegments = this.CombineSegments(seg1, seg2)
+        let seg3: Segments = this.SelectUnionSegments(comb)
+        this.PolygonOfSegments(seg3)
 
-    member private this.intersectPolygon(poly1: Polygon, poly2: Polygon) : Polygon =
-        let seg1: Segments = this.segmentsOfPolygon(poly1)
-        let seg2: Segments = this.segmentsOfPolygon(poly2)
-        let comb: CombinedSegments = this.combineSegments(seg1, seg2)
-        let seg3: Segments = this.selectIntersectSegments(comb)
-        this.polygonOfSegments(seg3)
+    member private this.IntersectPolygon(poly1: Polygon, poly2: Polygon) : Polygon =
+        let seg1: Segments = this.SegmentsOfPolygon(poly1)
+        let seg2: Segments = this.SegmentsOfPolygon(poly2)
+        let comb: CombinedSegments = this.CombineSegments(seg1, seg2)
+        let seg3: Segments = this.SelectIntersectSegments(comb)
+        this.PolygonOfSegments(seg3)
 
-    member private this.differencePolygon(poly1: Polygon, poly2: Polygon) : Polygon =
-        let seg1: Segments = this.segmentsOfPolygon(poly1)
-        let seg2: Segments = this.segmentsOfPolygon(poly2)
-        let comb: CombinedSegments = this.combineSegments(seg1, seg2)
-        let seg3: Segments = this.selectDifferenceSegments(comb)
-        this.polygonOfSegments(seg3)
+    member private this.DifferencePolygon(poly1: Polygon, poly2: Polygon) : Polygon =
+        let seg1: Segments = this.SegmentsOfPolygon(poly1)
+        let seg2: Segments = this.SegmentsOfPolygon(poly2)
+        let comb: CombinedSegments = this.CombineSegments(seg1, seg2)
+        let seg3: Segments = this.SelectDifferenceSegments(comb)
+        this.PolygonOfSegments(seg3)
 
-    member private this.differenceRevPolygon(poly1: Polygon, poly2: Polygon) : Polygon =
-        let seg1: Segments = this.segmentsOfPolygon(poly1)
-        let seg2: Segments = this.segmentsOfPolygon(poly2)
-        let comb: CombinedSegments = this.combineSegments(seg1, seg2)
-        let seg3: Segments = this.selectDifferenceRevSegments(comb)
-        this.polygonOfSegments(seg3)
+    member private this.DifferenceRevPolygon(poly1: Polygon, poly2: Polygon) : Polygon =
+        let seg1: Segments = this.SegmentsOfPolygon(poly1)
+        let seg2: Segments = this.SegmentsOfPolygon(poly2)
+        let comb: CombinedSegments = this.CombineSegments(seg1, seg2)
+        let seg3: Segments = this.SelectDifferenceRevSegments(comb)
+        this.PolygonOfSegments(seg3)
 
-    member private this.xorPolygon(poly1: Polygon, poly2: Polygon) : Polygon =
-        let seg1: Segments = this.segmentsOfPolygon(poly1)
-        let seg2: Segments = this.segmentsOfPolygon(poly2)
-        let comb: CombinedSegments = this.combineSegments(seg1, seg2)
-        let seg3: Segments = this.selectXorSegments(comb)
-        this.polygonOfSegments(seg3)
+    member private this.XorPolygon(poly1: Polygon, poly2: Polygon) : Polygon =
+        let seg1: Segments = this.SegmentsOfPolygon(poly1)
+        let seg2: Segments = this.SegmentsOfPolygon(poly2)
+        let comb: CombinedSegments = this.CombineSegments(seg1, seg2)
+        let seg3: Segments = this.SelectXorSegments(comb)
+        this.PolygonOfSegments(seg3)
 
-    member this.union(regions1: Vec2[][], regions2: Vec2[][]) : Vec2[][] =
+    member this.Union(regions1: Vec2[][], regions2: Vec2[][]) : Vec2[][] =
         let poly1: Polygon = polygonFromRegions regions1
         let poly2: Polygon = polygonFromRegions regions2
-        let result: Polygon = this.unionPolygon(poly1, poly2)
+        let result: Polygon = this.UnionPolygon(poly1, poly2)
         result.regions
 
-    member this.intersect(regions1: Vec2[][], regions2: Vec2[][]) : Vec2[][] =
+    member this.Intersect(regions1: Vec2[][], regions2: Vec2[][]) : Vec2[][] =
         let poly1: Polygon = polygonFromRegions regions1
         let poly2: Polygon = polygonFromRegions regions2
-        let result: Polygon = this.intersectPolygon(poly1, poly2)
+        let result: Polygon = this.IntersectPolygon(poly1, poly2)
         result.regions
 
-    member this.difference(regions1: Vec2[][], regions2: Vec2[][]) : Vec2[][] =
+    member this.Difference(regions1: Vec2[][], regions2: Vec2[][]) : Vec2[][] =
         let poly1: Polygon = polygonFromRegions regions1
         let poly2: Polygon = polygonFromRegions regions2
-        let result: Polygon = this.differencePolygon(poly1, poly2)
+        let result: Polygon = this.DifferencePolygon(poly1, poly2)
         result.regions
 
-    member this.differenceRev(regions1: Vec2[][], regions2: Vec2[][]) : Vec2[][] =
+    member this.DifferenceRev(regions1: Vec2[][], regions2: Vec2[][]) : Vec2[][] =
         let poly1: Polygon = polygonFromRegions regions1
         let poly2: Polygon = polygonFromRegions regions2
-        let result: Polygon = this.differenceRevPolygon(poly1, poly2)
+        let result: Polygon = this.DifferenceRevPolygon(poly1, poly2)
         result.regions
 
-    member this.xor(regions1: Vec2[][], regions2: Vec2[][]) : Vec2[][] =
+    member this.Xor(regions1: Vec2[][], regions2: Vec2[][]) : Vec2[][] =
         let poly1: Polygon = polygonFromRegions regions1
         let poly2: Polygon = polygonFromRegions regions2
-        let result: Polygon = this.xorPolygon(poly1, poly2)
+        let result: Polygon = this.XorPolygon(poly1, poly2)
         result.regions
 
 module PolyBoolExports =

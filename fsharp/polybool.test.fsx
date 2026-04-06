@@ -1,4 +1,4 @@
-#r "bin/Debug/net10.0/PolyBool.dll"
+#r "bin/Debug/netstandard2.0/PolyBool.dll"
 
 open System
 open PolyBool
@@ -79,7 +79,7 @@ let tests: (string * (unit -> unit))[] =
         "basic intersection",
         (fun () ->
             assertEqual(
-                polybool.intersect(triangle1Regions, triangle2Regions),
+                polybool.Intersect(triangle1Regions, triangle2Regions),
                 [|
                     [|
                         [| 10.0; 0.0 |]
@@ -91,7 +91,7 @@ let tests: (string * (unit -> unit))[] =
         "basic union",
         (fun () ->
             assertEqual(
-                polybool.union(triangle1Regions, triangle2Regions),
+                polybool.Union(triangle1Regions, triangle2Regions),
                 [|
                     [|
                         [| 10.0; 10.0 |]
@@ -107,7 +107,7 @@ let tests: (string * (unit -> unit))[] =
             assertThrowsContaining(
                 "only polygon vertices are supported",
                 fun () ->
-                    polybool.union(
+                    polybool.Union(
                         [|
                             [|
                                 [| 0.0; 0.0 |]
@@ -121,7 +121,7 @@ let tests: (string * (unit -> unit))[] =
         "array input",
         (fun () ->
             assertEqual(
-                polybool.intersect(triangle1Regions, triangle2Regions),
+                polybool.Intersect(triangle1Regions, triangle2Regions),
                 [|
                     [|
                         [| 10.0; 0.0 |]
@@ -133,7 +133,7 @@ let tests: (string * (unit -> unit))[] =
         "example",
         (fun () ->
             assertEqual(
-                polybool.intersect(example1Regions, example2Regions),
+                polybool.Intersect(example1Regions, example2Regions),
                 [|
                     [|
                         [| 50.0; 50.0 |]

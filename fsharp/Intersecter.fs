@@ -15,18 +15,13 @@ type SegmentBoolFill =
         mutable below: bool option
     }
 
-type ListBoolTransition<'T> =
-    {
-        before: 'T option
-        after: 'T option
-        insert: 'T -> 'T
-    }
+
 
 type SegmentBool(data: Segment, fill: SegmentBoolFill option, closed: bool, log: BuildLog option) =
     let idValue: int =
         match log with
         | Some log ->
-            log.segmentId()
+            log.SegmentId()
         | None ->
             -1
 
@@ -41,27 +36,27 @@ type SegmentBool(data: Segment, fill: SegmentBoolFill option, closed: bool, log:
     let mutable otherFillValue: SegmentBoolFill option = None
     let mutable closedValue: bool = closed
 
-    member this.id: int = idValue
+    member this.Id: int = idValue
 
-    member this.data
+    member this.Data
         with get () : Segment = dataValue
         and set (value: Segment) : unit = dataValue <- value
 
-    member this.myFill
+    member this.MyFill
         with get () : SegmentBoolFill = myFillValue
         and set (value: SegmentBoolFill) : unit = myFillValue <- value
 
-    member this.otherFill
+    member this.OtherFill
         with get () : SegmentBoolFill option = otherFillValue
         and set (value: SegmentBoolFill option) : unit = otherFillValue <- value
 
-    member this.closed
+    member this.Closed
         with get () : bool = closedValue
         and set (value: bool) : unit = closedValue <- value
 
 module IntersecterFunctions =
     let copySegmentBool(seg: SegmentBool, log: BuildLog option) : SegmentBool =
-        SegmentBool(seg.data, Some seg.myFill, seg.closed, log)
+        SegmentBool(seg.Data, Some seg.MyFill, seg.Closed, log)
 
 [<AllowNullLiteral>]
 type EventBool(isStart: bool, p: Vec2, seg: SegmentBool, primary: bool) =
@@ -69,51 +64,59 @@ type EventBool(isStart: bool, p: Vec2, seg: SegmentBool, primary: bool) =
     let mutable otherValue: EventBool = null
     let mutable statusValue: EventBool = null
 
-    member this.isStart: bool = isStart
+    member this.IsStart: bool = isStart
 
-    member this.p
+    member this.P
         with get () : Vec2 = pValue
         and set (value: Vec2) : unit = pValue <- value
 
-    member this.seg: SegmentBool = seg
-    member this.primary: bool = primary
+    member this.Seg: SegmentBool = seg
+    member this.Primary: bool = primary
 
-    member this.other
+    member this.Other
         with get () : EventBool = otherValue
         and set (value: EventBool) : unit = otherValue <- value
 
-    member this.status
+    member this.Status
         with get () : EventBool = statusValue
         and set (value: EventBool) : unit = statusValue <- value
 
-type ListBool<'T when 'T: equality>() =
-    let nodesValue: ResizeArray<'T> = ResizeArray<'T>()
 
-    member this.nodes: ResizeArray<'T> = nodesValue
+type ListBoolTransition =
+    {
+        before: EventBool option
+        after: EventBool option
+        insert: EventBool -> EventBool
+    }
 
-    member this.remove(node: 'T) : unit =
+type ListBool() =
+    let nodesValue: ResizeArray<EventBool> = ResizeArray<EventBool>()
+
+    member this.Nodes: ResizeArray<EventBool> = nodesValue
+
+    member this.Remove(node: EventBool) : unit =
         let i: int = nodesValue.IndexOf(node)
 
         if i >= 0 then
             nodesValue.RemoveAt(i)
 
-    member this.getIndex(node: 'T) : int =
+    member this.GetIndex(node: EventBool) : int =
         nodesValue.IndexOf(node)
 
-    member this.isEmpty() : bool =
+    member this.IsEmpty() : bool =
         nodesValue.Count <= 0
 
-    member this.getHead() : 'T =
+    member this.GetHead() : EventBool =
         nodesValue.[0]
 
-    member this.removeHead() : unit =
+    member this.RemoveHead() : unit =
         nodesValue.RemoveAt(0)
 
-    member this.insertBefore(node: 'T, check: 'T -> int) : unit =
-        this.findTransition(node, check).insert(node) |> ignore
+    member this.InsertBefore(node: EventBool, check: EventBool -> int) : unit =
+        this.FindTransition(node, check).insert(node) |> ignore
 
-    member this.findTransition(node: 'T, check: 'T -> int) : ListBoolTransition<'T> =
-        let compare (a: 'T) (b: 'T) : int =
+    member this.FindTransition(node: EventBool, check: EventBool -> int) : ListBoolTransition =
+        let compare (a: EventBool) (b: EventBool) : int =
             check b - check a
 
         let mutable i: int = 0
@@ -137,25 +140,25 @@ type ListBool<'T when 'T: equality>() =
         }
 
 type Intersecter(selfIntersection: bool,  ?log: BuildLog) =
-    let eventsValue: ListBool<EventBool> = ListBool<EventBool>()
-    let statusValue: ListBool<EventBool> = ListBool<EventBool>()
+    let eventsValue = ListBool()
+    let statusValue = ListBool()
     let mutable currentPath: ResizeArray<SegmentBool> = ResizeArray<SegmentBool>()
     let logValue: BuildLog option = log
 
-    member this.selfIntersection: bool = selfIntersection
+    member this.SelfIntersection: bool = selfIntersection
 
-    member this.events: ListBool<EventBool> = eventsValue
-    member this.status: ListBool<EventBool> = statusValue
-    member this.log: BuildLog option = logValue
+    member this.Events: ListBool = eventsValue
+    member this.Status: ListBool = statusValue
+    member this.Log: BuildLog option = logValue
 
-    member private this.segmentOrFalse(ev: EventBool option) : obj =
+    member private this.SegmentOrFalse(ev: EventBool option) : obj =
         match ev with
         | Some ev ->
-            box ev.seg
+            box ev.Seg
         | None ->
             box false
 
-    member this.compareEvents(
+    member this.CompareEvents(
         aStart: bool,
         a1: Vec2,
         a2: Vec2,
@@ -174,63 +177,63 @@ type Intersecter(selfIntersection: bool,  ?log: BuildLog) =
         elif aStart <> bStart then
             if aStart then 1 else -1
         else
-            this.compareSegments(bSeg, aSeg)
+            this.CompareSegments(bSeg, aSeg)
 
-    member this.addEvent(ev: EventBool) : unit =
-        this.events.insertBefore(
+    member this.AddEvent(ev: EventBool) : unit =
+        this.Events.InsertBefore(
             ev,
             fun here ->
                 if obj.ReferenceEquals(here, ev) then
                     0
                 else
-                    this.compareEvents(
-                        ev.isStart,
-                        ev.p,
-                        ev.other.p,
-                        ev.seg.data,
-                        here.isStart,
-                        here.p,
-                        here.other.p,
-                        here.seg.data
+                    this.CompareEvents(
+                        ev.IsStart,
+                        ev.P,
+                        ev.Other.P,
+                        ev.Seg.Data,
+                        here.IsStart,
+                        here.P,
+                        here.Other.P,
+                        here.Seg.Data
                     )
         )
 
-    member this.divideEvent(ev: EventBool, t: float, p: Vec2) : EventBool =
-        this.log |> Option.iter (fun log -> log.segmentDivide(ev.seg, p))
+    member this.DivideEvent(ev: EventBool, t: float, p: Vec2) : EventBool =
+        this.Log |> Option.iter (fun log -> log.SegmentDivide(ev.Seg, p))
 
-        let split: Segment[] = ev.seg.data.split([| t |])
+        let split: Segment[] = ev.Seg.Data.Split([| t |])
         let left: Segment = split.[0]
         let right: Segment = split.[1]
 
-        left.setEnd(p)
-        right.setStart(p)
+        left.SetEnd(p)
+        right.SetStart(p)
 
-        let ns: SegmentBool = SegmentBool(right, Some ev.seg.myFill, ev.seg.closed, this.log)
+        let ns: SegmentBool = SegmentBool(right, Some ev.Seg.MyFill, ev.Seg.Closed, this.Log)
 
-        this.events.remove(ev.other)
-        ev.seg.data <- left
-        this.log |> Option.iter (fun log -> log.segmentChop(ev.seg))
-        ev.other.p <- p
-        this.addEvent(ev.other)
-        this.addSegment(ns, ev.primary)
+        this.Events.Remove(ev.Other)
+        ev.Seg.Data <- left
+        this.Log |> Option.iter (fun log -> log.SegmentChop(ev.Seg))
+        ev.Other.P <- p
+        this.AddEvent(ev.Other)
+        this.AddSegment(ns, ev.Primary)
 
-    member this.beginPath() : unit =
+    member this.BeginPath() : unit =
         currentPath <- ResizeArray<SegmentBool>()
 
-    member this.closePath() : unit =
+    member this.ClosePath() : unit =
         for seg: SegmentBool in currentPath do
-            seg.closed <- true
+            seg.Closed <- true
 
-    member this.addSegment(seg: SegmentBool, primary: bool) : EventBool =
-        let evStart: EventBool = EventBool(true, seg.data.start(), seg, primary)
-        let evEnd: EventBool = EventBool(false, seg.data.``end``(), seg, primary)
-        evStart.other <- evEnd
-        evEnd.other <- evStart
-        this.addEvent(evStart)
-        this.addEvent(evEnd)
+    member this.AddSegment(seg: SegmentBool, primary: bool) : EventBool =
+        let evStart: EventBool = EventBool(true, seg.Data.Start(), seg, primary)
+        let evEnd: EventBool = EventBool(false, seg.Data.``end``(), seg, primary)
+        evStart.Other <- evEnd
+        evEnd.Other <- evStart
+        this.AddEvent(evStart)
+        this.AddEvent(evEnd)
         evStart
 
-    member this.addLine(fromPoint: Vec2, toPoint: Vec2, ?primary: bool) : unit =
+    member this.AddLine(fromPoint: Vec2, toPoint: Vec2, ?primary: bool) : unit =
         let primary: bool = defaultArg primary true
         let f: int = Geometry.compareVec2(fromPoint, toPoint)
 
@@ -242,15 +245,15 @@ type Intersecter(selfIntersection: bool,  ?log: BuildLog) =
                     Segment(startPoint, endPoint),
                     None,
                     false,
-                    this.log
+                    this.Log
                 )
 
             currentPath.Add(seg)
-            this.addSegment(seg, primary) |> ignore
+            this.AddSegment(seg, primary) |> ignore
 
-    member this.compareSegments(seg1: Segment, seg2: Segment) : int =
+    member this.CompareSegments(seg1: Segment, seg2: Segment) : int =
         let b: Vec2 = seg2.``end``()
-        let c: Vec2 = seg2.start()
+        let c: Vec2 = seg2.Start()
 
         let orientation(a: Vec2) : int =
             let ax: float = a.[0]
@@ -261,45 +264,45 @@ type Intersecter(selfIntersection: bool,  ?log: BuildLog) =
             let cy: float = c.[1]
             Math.Sign((bx - ax) * (cy - ay) - (by - ay) * (cx - ax))
 
-        let mutable a: Vec2 = seg1.start()
+        let mutable a: Vec2 = seg1.Start()
 
-        if seg2.pointOn(a) then
+        if seg2.PointOn(a) then
             a <- seg1.``end``()
 
-            if seg2.pointOn(a) then
+            if seg2.PointOn(a) then
                 0
             else
                 orientation a
         else
             orientation a
 
-    member this.statusFindSurrounding(ev: EventBool) : ListBoolTransition<EventBool> =
-        this.status.findTransition(
+    member this.StatusFindSurrounding(ev: EventBool) : ListBoolTransition =
+        this.Status.FindTransition(
             ev,
             fun here ->
                 if obj.ReferenceEquals(ev, here) then
                     0
                 else
-                    let c: int = this.compareSegments(ev.seg.data, here.seg.data)
+                    let c: int = this.CompareSegments(ev.Seg.Data, here.Seg.Data)
                     if c = 0 then -1 else c
         )
 
-    member this.checkIntersection(ev1: EventBool, ev2: EventBool) : EventBool option =
-        let seg1: SegmentBool = ev1.seg
-        let seg2: SegmentBool = ev2.seg
+    member this.CheckIntersection(ev1: EventBool, ev2: EventBool) : EventBool option =
+        let seg1: SegmentBool = ev1.Seg
+        let seg2: SegmentBool = ev2.Seg
 
-        this.log |> Option.iter (fun log -> log.checkIntersection(seg1, seg2))
+        this.Log |> Option.iter (fun log -> log.CheckIntersection(seg1, seg2))
 
-        match SegmentFunctions.segmentsIntersect(seg1.data, seg2.data, false) with
+        match SegmentFunctions.segmentsIntersect(seg1.Data, seg2.Data, false) with
         | None ->
             None
         | Some intersection ->
-            match intersection.kind with
+            match intersection.Kind with
             | TRangePairsKind ->
-                let tA1: float = intersection.tStart.[0]
-                let tB1: float = intersection.tStart.[1]
-                let tA2: float = intersection.tEnd.[0]
-                let tB2: float = intersection.tEnd.[1]
+                let tA1: float = intersection.TStart.[0]
+                let tB1: float = intersection.TStart.[1]
+                let tA2: float = intersection.TEnd.[0]
+                let tB2: float = intersection.TEnd.[1]
 
                 if
                     (tA1 = 1.0 && tA2 = 1.0 && tB1 = 0.0 && tB2 = 0.0)
@@ -309,36 +312,36 @@ type Intersecter(selfIntersection: bool,  ?log: BuildLog) =
                 elif tA1 = 0.0 && tA2 = 1.0 && tB1 = 0.0 && tB2 = 1.0 then
                     Some ev2
                 else
-                    let a1: Vec2 = seg1.data.start()
-                    let a2: Vec2 = seg1.data.``end``()
-                    let b2: Vec2 = seg2.data.``end``()
+                    let a1: Vec2 = seg1.Data.Start()
+                    let a2: Vec2 = seg1.Data.``end``()
+                    let b2: Vec2 = seg2.Data.``end``()
 
                     if tA1 = 0.0 && tB1 = 0.0 then
                         if tA2 = 1.0 then
-                            this.divideEvent(ev2, tB2, a2) |> ignore
+                            this.DivideEvent(ev2, tB2, a2) |> ignore
                         else
-                            this.divideEvent(ev1, tA2, b2) |> ignore
+                            this.DivideEvent(ev1, tA2, b2) |> ignore
 
                         Some ev2
                     elif tB1 > 0.0 && tB1 < 1.0 then
                         if tA2 = 1.0 && tB2 = 1.0 then
-                            this.divideEvent(ev2, tB1, a1) |> ignore
+                            this.DivideEvent(ev2, tB1, a1) |> ignore
                         else
                             if tA2 = 1.0 then
-                                this.divideEvent(ev2, tB2, a2) |> ignore
+                                this.DivideEvent(ev2, tB2, a2) |> ignore
                             else
-                                this.divideEvent(ev1, tA2, b2) |> ignore
+                                this.DivideEvent(ev1, tA2, b2) |> ignore
 
-                            this.divideEvent(ev2, tB1, a1) |> ignore
+                            this.DivideEvent(ev2, tB1, a1) |> ignore
 
                         None
                     else
                         None
             | TValuePairsKind ->
-                if intersection.tValuePairs.Length <= 0 then
+                if intersection.TValuePairs.Length <= 0 then
                     None
                 else
-                    let mutable minPair: Vec2 = intersection.tValuePairs.[0]
+                    let mutable minPair: Vec2 = intersection.TValuePairs.[0]
                     let mutable j: int = 1
 
                     let isEndpointPair(pair: Vec2) : bool =
@@ -347,8 +350,8 @@ type Intersecter(selfIntersection: bool,  ?log: BuildLog) =
                         || (pair.[0] = 1.0 && pair.[1] = 0.0)
                         || (pair.[0] = 1.0 && pair.[1] = 1.0)
 
-                    while j < intersection.tValuePairs.Length && isEndpointPair minPair do
-                        minPair <- intersection.tValuePairs.[j]
+                    while j < intersection.TValuePairs.Length && isEndpointPair minPair do
+                        minPair <- intersection.TValuePairs.[j]
                         j <- j + 1
 
                     let tA: float = minPair.[0]
@@ -356,111 +359,111 @@ type Intersecter(selfIntersection: bool,  ?log: BuildLog) =
 
                     let p: Vec2 =
                         if tB = 0.0 then
-                            seg2.data.start()
+                            seg2.Data.Start()
                         elif tB = 1.0 then
-                            seg2.data.``end``()
+                            seg2.Data.``end``()
                         elif tA = 0.0 then
-                            seg1.data.start()
+                            seg1.Data.Start()
                         elif tA = 1.0 then
-                            seg1.data.``end``()
+                            seg1.Data.``end``()
                         else
-                            seg1.data.point(tA)
+                            seg1.Data.Point(tA)
 
                     if tA > 0.0 && tA < 1.0 then
-                        this.divideEvent(ev1, tA, p) |> ignore
+                        this.DivideEvent(ev1, tA, p) |> ignore
 
                     if tB > 0.0 && tB < 1.0 then
-                        this.divideEvent(ev2, tB, p) |> ignore
+                        this.DivideEvent(ev2, tB, p) |> ignore
 
                     None
 
-    member this.calculate() : SegmentBool[] =
+    member this.Calculate() : SegmentBool[] =
         let segments: ResizeArray<SegmentBool> = ResizeArray<SegmentBool>()
 
-        while not (this.events.isEmpty()) do
-            let ev: EventBool = this.events.getHead()
+        while not (this.Events.IsEmpty()) do
+            let ev: EventBool = this.Events.GetHead()
             let mutable shouldRemoveHead: bool = true
-            this.log |> Option.iter (fun log -> log.vert(ev.p.[0]))
+            this.Log |> Option.iter (fun log -> log.Vert(ev.P.[0]))
 
-            if ev.isStart then
-                this.log |> Option.iter (fun log -> log.segmentNew(ev.seg, ev.primary))
+            if ev.IsStart then
+                this.Log |> Option.iter (fun log -> log.SegmentNew(ev.Seg, ev.Primary))
 
-                let surrounding: ListBoolTransition<EventBool> = this.statusFindSurrounding(ev)
+                let surrounding: ListBoolTransition = this.StatusFindSurrounding(ev)
                 let above: EventBool option = surrounding.before
                 let below: EventBool option = surrounding.after
 
-                this.log
-                |> Option.iter (fun log -> log.tempStatus(ev.seg, this.segmentOrFalse above, this.segmentOrFalse below))
+                this.Log
+                |> Option.iter (fun log -> log.TempStatus(ev.Seg, this.SegmentOrFalse above, this.SegmentOrFalse below))
 
                 let checkBothIntersections() : EventBool option =
                     match above with
                     | Some above ->
-                        match this.checkIntersection(ev, above) with
+                        match this.CheckIntersection(ev, above) with
                         | Some eve ->
                             Some eve
                         | None ->
                             match below with
                             | Some below ->
-                                this.checkIntersection(ev, below)
+                                this.CheckIntersection(ev, below)
                             | None ->
                                 None
                     | None ->
                         match below with
                         | Some below ->
-                            this.checkIntersection(ev, below)
+                            this.CheckIntersection(ev, below)
                         | None ->
                             None
 
                 match checkBothIntersections() with
                 | Some eve ->
-                    if this.selfIntersection then
+                    if this.SelfIntersection then
                         let toggle: bool =
-                            match ev.seg.myFill.below with
+                            match ev.Seg.MyFill.below with
                             | None ->
-                                ev.seg.closed
+                                ev.Seg.Closed
                             | Some below ->
-                                ev.seg.myFill.above <> Some below
+                                ev.Seg.MyFill.above <> Some below
 
                         if toggle then
-                            eve.seg.myFill <-
+                            eve.Seg.MyFill <-
                                 {
-                                    eve.seg.myFill with
-                                        above = Some(not (Option.defaultValue false eve.seg.myFill.above))
+                                    eve.Seg.MyFill with
+                                        above = Some(not (Option.defaultValue false eve.Seg.MyFill.above))
                                 }
                     else
-                        eve.seg.otherFill <- Some ev.seg.myFill
+                        eve.Seg.OtherFill <- Some ev.Seg.MyFill
 
-                    this.log |> Option.iter (fun log -> log.segmentUpdate(eve.seg))
-                    this.events.remove(ev.other)
-                    this.events.remove(ev)
+                    this.Log |> Option.iter (fun log -> log.SegmentUpdate(eve.Seg))
+                    this.Events.Remove(ev.Other)
+                    this.Events.Remove(ev)
                 | None ->
                     ()
 
-                if this.events.isEmpty() || not (obj.ReferenceEquals(this.events.getHead(), ev)) then
-                    this.log |> Option.iter (fun log -> log.rewind(ev.seg))
+                if this.Events.IsEmpty() || not (obj.ReferenceEquals(this.Events.GetHead(), ev)) then
+                    this.Log |> Option.iter (fun log -> log.Rewind(ev.Seg))
                     shouldRemoveHead <- false
                 else
-                    if this.selfIntersection then
+                    if this.SelfIntersection then
                         let toggle: bool =
-                            if ev.seg.myFill.below.IsNone then
-                                ev.seg.closed
+                            if ev.Seg.MyFill.below.IsNone then
+                                ev.Seg.Closed
                             else
-                                ev.seg.myFill.above <> ev.seg.myFill.below
+                                ev.Seg.MyFill.above <> ev.Seg.MyFill.below
 
                         if below.IsNone then
-                            ev.seg.myFill <- { ev.seg.myFill with below = Some false }
+                            ev.Seg.MyFill <- { ev.Seg.MyFill with below = Some false }
                         else
-                            ev.seg.myFill <-
+                            ev.Seg.MyFill <-
                                 {
-                                    ev.seg.myFill with
-                                        below = Some(Option.defaultValue false below.Value.seg.myFill.above)
+                                    ev.Seg.MyFill with
+                                        below = Some(Option.defaultValue false below.Value.Seg.MyFill.above)
                                 }
 
-                        let belowValue: bool = Option.defaultValue false ev.seg.myFill.below
+                        let belowValue: bool = Option.defaultValue false ev.Seg.MyFill.below
 
-                        ev.seg.myFill <-
+                        ev.Seg.MyFill <-
                             {
-                                ev.seg.myFill with
+                                ev.Seg.MyFill with
                                     above =
                                         Some(
                                             if toggle then
@@ -470,56 +473,56 @@ type Intersecter(selfIntersection: bool,  ?log: BuildLog) =
                                         )
                             }
                     else
-                        if ev.seg.otherFill.IsNone then
+                        if ev.Seg.OtherFill.IsNone then
                             let inside: bool =
                                 match below with
                                 | None ->
                                     false
                                 | Some below ->
-                                    if ev.primary = below.primary then
-                                        match below.seg.otherFill with
+                                    if ev.Primary = below.Primary then
+                                        match below.Seg.OtherFill with
                                         | Some otherFill ->
                                             Option.defaultValue false otherFill.above
                                         | None ->
                                             failwith "PolyBool: Unexpected state of otherFill (null)"
                                     else
-                                        Option.defaultValue false below.seg.myFill.above
+                                        Option.defaultValue false below.Seg.MyFill.above
 
-                            ev.seg.otherFill <- Some { above = Some inside; below = Some inside }
+                            ev.Seg.OtherFill <- Some { above = Some inside; below = Some inside }
 
-                    this.log
-                    |> Option.iter (fun log -> log.status(ev.seg, this.segmentOrFalse above, this.segmentOrFalse below))
+                    this.Log
+                    |> Option.iter (fun log -> log.Status(ev.Seg, this.SegmentOrFalse above, this.SegmentOrFalse below))
 
-                    ev.other.status <- surrounding.insert(ev)
+                    ev.Other.Status <- surrounding.insert(ev)
             else
-                let st: EventBool = ev.status
+                let st: EventBool = ev.Status
 
                 if isNull st then
                     failwith "PolyBool: Zero-length segment detected; your epsilon is probably too small or too large"
 
-                let i: int = this.status.getIndex(st)
+                let i: int = this.Status.GetIndex(st)
 
-                if i > 0 && i < this.status.nodes.Count - 1 then
-                    let before: EventBool = this.status.nodes.[i - 1]
-                    let after: EventBool = this.status.nodes.[i + 1]
-                    this.checkIntersection(before, after) |> ignore
+                if i > 0 && i < this.Status.Nodes.Count - 1 then
+                    let before: EventBool = this.Status.Nodes.[i - 1]
+                    let after: EventBool = this.Status.Nodes.[i + 1]
+                    this.CheckIntersection(before, after) |> ignore
 
-                this.log |> Option.iter (fun log -> log.statusRemove(st.seg))
-                this.status.remove(st)
+                this.Log |> Option.iter (fun log -> log.StatusRemove(st.Seg))
+                this.Status.Remove(st)
 
-                if not ev.primary then
-                    match ev.seg.otherFill with
+                if not ev.Primary then
+                    match ev.Seg.OtherFill with
                     | Some otherFill ->
-                        let s: SegmentBoolFill = ev.seg.myFill
-                        ev.seg.myFill <- otherFill
-                        ev.seg.otherFill <- Some s
+                        let s: SegmentBoolFill = ev.Seg.MyFill
+                        ev.Seg.MyFill <- otherFill
+                        ev.Seg.OtherFill <- Some s
                     | None ->
                         failwith "PolyBool: Unexpected state of otherFill (null)"
 
-                segments.Add(ev.seg)
+                segments.Add(ev.Seg)
 
-            if shouldRemoveHead && not (this.events.isEmpty()) then
-                this.events.removeHead()
+            if shouldRemoveHead && not (this.Events.IsEmpty()) then
+                this.Events.RemoveHead()
 
-        this.log |> Option.iter (fun log -> log.``done``())
+        this.Log |> Option.iter (fun log -> log.``done``())
         segments.ToArray()

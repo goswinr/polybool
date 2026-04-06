@@ -26,106 +26,106 @@ type BuildLog() =
     let mutable nextSegmentIdValue: int = 0
     let mutable curVertValue: float = Double.NaN
 
-    member this.list: ResizeArray<BuildLogEntry> = listValue
+    member this.List: ResizeArray<BuildLogEntry> = listValue
 
-    member this.nextSegmentId
+    member this.NextSegmentId
         with get () : int = nextSegmentIdValue
         and set (value: int) : unit = nextSegmentIdValue <- value
 
-    member this.curVert
+    member this.CurVert
         with get () : float = curVertValue
         and set (value: float) : unit = curVertValue <- value
 
-    member this.push(typ: string, data: obj) : unit =
+    member this.Push(typ: string, data: obj) : unit =
         listValue.Add({
             typ = typ
             data = data
         })
 
-    member this.info(msg: string, ?data: obj) : unit =
-        this.push("info", box {| msg = msg; data = defaultArg data null |})
+    member this.Info(msg: string, ?data: obj) : unit =
+        this.Push("info", box {| msg = msg; data = defaultArg data null |})
 
-    member this.segmentId() : int =
+    member this.SegmentId() : int =
         let id: int = nextSegmentIdValue
         nextSegmentIdValue <- nextSegmentIdValue + 1
         id
 
-    member this.checkIntersection(seg1: obj, seg2: obj) : unit =
-        this.push("check", box {| seg1 = seg1; seg2 = seg2 |})
+    member this.CheckIntersection(seg1: obj, seg2: obj) : unit =
+        this.Push("check", box {| seg1 = seg1; seg2 = seg2 |})
 
-    member this.segmentDivide(seg: obj, p: Vec2) : unit =
-        this.push("div_seg", box {| seg = seg; p = p |})
+    member this.SegmentDivide(seg: obj, p: Vec2) : unit =
+        this.Push("div_seg", box {| seg = seg; p = p |})
 
-    member this.segmentChop(seg: obj) : unit =
-        this.push("chop", box {| seg = seg |})
+    member this.SegmentChop(seg: obj) : unit =
+        this.Push("chop", box {| seg = seg |})
 
-    member this.statusRemove(seg: obj) : unit =
-        this.push("pop_seg", box {| seg = seg |})
+    member this.StatusRemove(seg: obj) : unit =
+        this.Push("pop_seg", box {| seg = seg |})
 
-    member this.segmentUpdate(seg: obj) : unit =
-        this.push("seg_update", box {| seg = seg |})
+    member this.SegmentUpdate(seg: obj) : unit =
+        this.Push("seg_update", box {| seg = seg |})
 
-    member this.segmentNew(seg: obj, primary: bool) : unit =
-        this.push("new_seg", box {| seg = seg; primary = primary |})
+    member this.SegmentNew(seg: obj, primary: bool) : unit =
+        this.Push("new_seg", box {| seg = seg; primary = primary |})
 
-    member this.tempStatus(seg: obj, above: obj, below: obj) : unit =
-        this.push("temp_status", box {| seg = seg; above = above; below = below |})
+    member this.TempStatus(seg: obj, above: obj, below: obj) : unit =
+        this.Push("temp_status", box {| seg = seg; above = above; below = below |})
 
-    member this.rewind(seg: obj) : unit =
-        this.push("rewind", box {| seg = seg |})
+    member this.Rewind(seg: obj) : unit =
+        this.Push("rewind", box {| seg = seg |})
 
-    member this.status(seg: obj, above: obj, below: obj) : unit =
-        this.push("status", box {| seg = seg; above = above; below = below |})
+    member this.Status(seg: obj, above: obj, below: obj) : unit =
+        this.Push("status", box {| seg = seg; above = above; below = below |})
 
-    member this.vert(x: float) : unit =
+    member this.Vert(x: float) : unit =
         if x <> curVertValue then
-            this.push("vert", box {| x = x |})
+            this.Push("vert", box {| x = x |})
             curVertValue <- x
 
-    member this.selected(segs: obj) : unit =
-        this.push("selected", box {| segs = segs |})
+    member this.Selected(segs: obj) : unit =
+        this.Push("selected", box {| segs = segs |})
 
-    member this.chainStart(sf: SegFill, closed: bool) : unit =
-        this.push("chain_start", box {| sf = sf; closed = closed |})
+    member this.ChainStart(sf: SegFill, closed: bool) : unit =
+        this.Push("chain_start", box {| sf = sf; closed = closed |})
 
-    member this.chainNew(sf: SegFill, closed: bool) : unit =
-        this.push("chain_new", box {| sf = sf; closed = closed |})
+    member this.ChainNew(sf: SegFill, closed: bool) : unit =
+        this.Push("chain_new", box {| sf = sf; closed = closed |})
 
-    member this.chainMatch(index: int, closed: bool) : unit =
-        this.push("chain_match", box {| index = index; closed = closed |})
+    member this.ChainMatch(index: int, closed: bool) : unit =
+        this.Push("chain_match", box {| index = index; closed = closed |})
 
-    member this.chainClose(index: int, closed: bool) : unit =
-        this.push("chain_close", box {| index = index; closed = closed |})
+    member this.ChainClose(index: int, closed: bool) : unit =
+        this.Push("chain_close", box {| index = index; closed = closed |})
 
-    member this.chainAddHead(index: int, sf: SegFill, closed: bool) : unit =
-        this.push("chain_add_head", box {| index = index; sf = sf; closed = closed |})
+    member this.ChainAddHead(index: int, sf: SegFill, closed: bool) : unit =
+        this.Push("chain_add_head", box {| index = index; sf = sf; closed = closed |})
 
-    member this.chainAddTail(index: int, sf: SegFill, closed: bool) : unit =
-        this.push("chain_add_tail", box {| index = index; sf = sf; closed = closed |})
+    member this.ChainAddTail(index: int, sf: SegFill, closed: bool) : unit =
+        this.Push("chain_add_tail", box {| index = index; sf = sf; closed = closed |})
 
-    member this.chainSimplifyHead(index: int, sf: SegFill, closed: bool) : unit =
-        this.push("chain_simp_head", box {| index = index; sf = sf; closed = closed |})
+    member this.ChainSimplifyHead(index: int, sf: SegFill, closed: bool) : unit =
+        this.Push("chain_simp_head", box {| index = index; sf = sf; closed = closed |})
 
-    member this.chainSimplifyTail(index: int, sf: SegFill, closed: bool) : unit =
-        this.push("chain_simp_tail", box {| index = index; sf = sf; closed = closed |})
+    member this.ChainSimplifyTail(index: int, sf: SegFill, closed: bool) : unit =
+        this.Push("chain_simp_tail", box {| index = index; sf = sf; closed = closed |})
 
-    member this.chainSimplifyClose(index: int, sf: SegFill, closed: bool) : unit =
-        this.push("chain_simp_close", box {| index = index; sf = sf; closed = closed |})
+    member this.ChainSimplifyClose(index: int, sf: SegFill, closed: bool) : unit =
+        this.Push("chain_simp_close", box {| index = index; sf = sf; closed = closed |})
 
-    member this.chainSimplifyJoin(index1: int, index2: int, sf: SegFill, closed: bool) : unit =
-        this.push(
+    member this.ChainSimplifyJoin(index1: int, index2: int, sf: SegFill, closed: bool) : unit =
+        this.Push(
             "chain_simp_join",
             box {| index1 = index1; index2 = index2; sf = sf; closed = closed |}
         )
 
-    member this.chainConnect(index1: int, index2: int, closed: bool) : unit =
-        this.push("chain_con", box {| index1 = index1; index2 = index2; closed = closed |})
+    member this.ChainConnect(index1: int, index2: int, closed: bool) : unit =
+        this.Push("chain_con", box {| index1 = index1; index2 = index2; closed = closed |})
 
-    member this.chainReverse(index: int, closed: bool) : unit =
-        this.push("chain_rev", box {| index = index; closed = closed |})
+    member this.ChainReverse(index: int, closed: bool) : unit =
+        this.Push("chain_rev", box {| index = index; closed = closed |})
 
-    member this.chainJoin(index1: int, index2: int, closed: bool) : unit =
-        this.push("chain_join", box {| index1 = index1; index2 = index2; closed = closed |})
+    member this.ChainJoin(index1: int, index2: int, closed: bool) : unit =
+        this.Push("chain_join", box {| index1 = index1; index2 = index2; closed = closed |})
 
     member this.``done``() : unit =
-        this.push("done", null)
+        this.Push("done", null)

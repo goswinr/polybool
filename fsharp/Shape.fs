@@ -26,24 +26,24 @@ type internal Shape( segments: SegmentBool[] option, log: BuildLog option) =
             New(Intersecter(true,  ?log = log))
 
 
-    member this.log: BuildLog option = log
+    member this.Log: BuildLog option = log
 
-    member this.beginPath() : Shape =
+    member this.BeginPath() : Shape =
         match resultState with
         | New selfIntersect ->
-            selfIntersect.beginPath()
-            this.endPath()
+            selfIntersect.BeginPath()
+            this.EndPath()
         | _ ->
             failwith "PolyBool: Cannot change shape after using it in an operation"
 
-    member this.moveTo(x: float, y: float) : Shape =
+    member this.MoveTo(x: float, y: float) : Shape =
         match resultState with
         | New _ ->
             match pathState with
             | BeginPath ->
                 ()
             | _ ->
-                this.beginPath() |> ignore
+                this.BeginPath() |> ignore
 
             let current: Vec2 = [| x; y |]
             pathState <- MoveTo(current, current)
@@ -51,11 +51,11 @@ type internal Shape( segments: SegmentBool[] option, log: BuildLog option) =
         | _ ->
             failwith "PolyBool: Cannot change shape after using it in an operation"
 
-    member this.lineTo(x: float, y: float) : Shape =
+    member this.LineTo(x: float, y: float) : Shape =
         match resultState, pathState with
         | New selfIntersect, MoveTo(start, currentPoint) ->
             let current: Vec2 = [| x; y |]
-            selfIntersect.addLine(currentPoint, current)
+            selfIntersect.AddLine(currentPoint, current)
             pathState <- MoveTo(start, current)
             this
         | New _, _ ->
@@ -63,30 +63,30 @@ type internal Shape( segments: SegmentBool[] option, log: BuildLog option) =
         | _ ->
             failwith "PolyBool: Cannot change shape after using it in an operation"
 
-    member this.rect(x: float, y: float, width: float, height: float) : Shape =
-        this.moveTo(x, y)
-            .lineTo(x + width, y)
-            .lineTo(x + width, y + height)
-            .lineTo(x, y + height)
-            .closePath()
-            .moveTo(x, y)
+    member this.Rect(x: float, y: float, width: float, height: float) : Shape =
+        this.MoveTo(x, y)
+            .LineTo(x + width, y)
+            .LineTo(x + width, y + height)
+            .LineTo(x, y + height)
+            .ClosePath()
+            .MoveTo(x, y)
 
-    member this.closePath() : Shape =
+    member this.ClosePath() : Shape =
         match resultState with
         | New selfIntersect ->
             match pathState with
             | MoveTo(start, current) when not (Geometry.isEqualVec2(start, current)) ->
-                selfIntersect.addLine(current, start)
+                selfIntersect.AddLine(current, start)
                 pathState <- MoveTo(start, start)
             | _ ->
                 ()
 
-            selfIntersect.closePath()
-            this.endPath()
+            selfIntersect.ClosePath()
+            this.EndPath()
         | _ ->
             failwith "PolyBool: Cannot change shape after using it in an operation"
 
-    member this.endPath() : Shape =
+    member this.EndPath() : Shape =
         match resultState with
         | New _ ->
             pathState <- BeginPath
@@ -94,10 +94,10 @@ type internal Shape( segments: SegmentBool[] option, log: BuildLog option) =
         | _ ->
             failwith "PolyBool: Cannot change shape after using it in an operation"
 
-    member private this.selfIntersect() : SegmentBool[] =
+    member private this.SelfIntersect() : SegmentBool[] =
         match resultState with
         | New selfIntersect ->
-            let calculatedSegments: SegmentBool[] = selfIntersect.calculate()
+            let calculatedSegments: SegmentBool[] = selfIntersect.Calculate()
             resultState <- Seg calculatedSegments
             calculatedSegments
         | Seg calculatedSegments ->
@@ -105,46 +105,46 @@ type internal Shape( segments: SegmentBool[] option, log: BuildLog option) =
         | Reg(calculatedSegments, _) ->
             calculatedSegments
 
-    member this.segments() : Segment[][] =
+    member this.Segments() : Segment[][] =
         match resultState with
         | Reg(_, regions) ->
             regions
         | _ ->
-            let calculatedSegments: SegmentBool[] = this.selfIntersect()
-            let regions: Segment[][] = SegmentChainer.segmentChainer(calculatedSegments, this.log)
+            let calculatedSegments: SegmentBool[] = this.SelfIntersect()
+            let regions: Segment[][] = SegmentChainer.segmentChainer(calculatedSegments, this.Log)
             resultState <- Reg(calculatedSegments, regions)
             regions
 
-    member this.output(receiver: PolyBoolReceiver) : PolyBoolReceiver =
-        SegmentChainer.segmentsToReceiver(this.segments(), receiver)
+    member this.Output(receiver: PolyBoolReceiver) : PolyBoolReceiver =
+        SegmentChainer.segmentsToReceiver(this.Segments(), receiver)
 
-    member this.combine(shape: Shape) : ShapeCombined =
-        let intersection: Intersecter = Intersecter(false, ?log = this.log)
+    member this.Combine(shape: Shape) : ShapeCombined =
+        let intersection: Intersecter = Intersecter(false, ?log = this.Log)
 
-        for seg: SegmentBool in this.selfIntersect() do
-            intersection.addSegment(IntersecterFunctions.copySegmentBool(seg, this.log), true) |> ignore
+        for seg: SegmentBool in this.SelfIntersect() do
+            intersection.AddSegment(IntersecterFunctions.copySegmentBool(seg, this.Log), true) |> ignore
 
-        for seg: SegmentBool in shape.selfIntersect() do
-            intersection.addSegment(IntersecterFunctions.copySegmentBool(seg, this.log), false) |> ignore
+        for seg: SegmentBool in shape.SelfIntersect() do
+            intersection.AddSegment(IntersecterFunctions.copySegmentBool(seg, this.Log), false) |> ignore
 
-        ShapeCombined(intersection.calculate(), this.log)
+        ShapeCombined(intersection.Calculate(), this.Log)
 
 and internal ShapeCombined(segments: SegmentBool[],  log: BuildLog option) =
 
-    member this.log: BuildLog option = log
-    member this.segmentsData: SegmentBool[] = segments
+    member this.Log: BuildLog option = log
+    member this.SegmentsData: SegmentBool[] = segments
 
-    member this.union() : Shape =
-        Shape(Some(SegmentSelector.union(this.segmentsData, this.log)), this.log)
+    member this.Union() : Shape =
+           Shape(Some(SegmentSelector.union(this.SegmentsData, this.Log)), this.Log)
 
-    member this.intersect() : Shape =
-        Shape(Some(SegmentSelector.intersect(this.segmentsData, this.log)), this.log)
+    member this.Intersect() : Shape =
+           Shape(Some(SegmentSelector.intersect(this.SegmentsData, this.Log)), this.Log)
 
-    member this.difference() : Shape =
-        Shape(Some(SegmentSelector.difference(this.segmentsData, this.log)), this.log)
+    member this.Difference() : Shape =
+           Shape(Some(SegmentSelector.difference(this.SegmentsData, this.Log)), this.Log)
 
-    member this.differenceRev() : Shape =
-        Shape(Some(SegmentSelector.differenceRev(this.segmentsData, this.log)), this.log)
+    member this.DifferenceRev() : Shape =
+           Shape(Some(SegmentSelector.differenceRev(this.SegmentsData, this.Log)), this.Log)
 
-    member this.xor() : Shape =
-        Shape(Some(SegmentSelector.xor(this.segmentsData, this.log)), this.log)
+    member this.Xor() : Shape =
+           Shape(Some(SegmentSelector.xor(this.SegmentsData, this.Log)), this.Log)

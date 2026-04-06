@@ -17,15 +17,15 @@ type SegmentSelector private () =
 
         for seg: SegmentBool in segments do
             let index: int =
-                (if Option.defaultValue false seg.myFill.above then 8 else 0)
-                + (if Option.defaultValue false seg.myFill.below then 4 else 0)
+                (if Option.defaultValue false seg.MyFill.above then 8 else 0)
+                + (if Option.defaultValue false seg.MyFill.below then 4 else 0)
                 + (
-                    match seg.otherFill with
+                    match seg.OtherFill with
                     | Some otherFill when Option.defaultValue false otherFill.above -> 2
                     | _ -> 0
                 )
                 + (
-                    match seg.otherFill with
+                    match seg.OtherFill with
                     | Some otherFill when Option.defaultValue false otherFill.below -> 1
                     | _ -> 0
                 )
@@ -34,11 +34,11 @@ type SegmentSelector private () =
             let above: bool = (flags &&& 1) <> 0
             let below: bool = (flags &&& 2) <> 0
 
-            if ((not seg.closed) && flags <> 0) || (seg.closed && above <> below) then
+            if ((not seg.Closed) && flags <> 0) || (seg.Closed && above <> below) then
                 let fill: SegmentBoolFill = { above = Some above; below = Some below }
-                result.Add(SegmentBool(seg.data, Some fill, seg.closed, log))
+                result.Add(SegmentBool(seg.Data, Some fill, seg.Closed, log))
 
-        log |> Option.iter (fun log -> log.selected(box (result.ToArray())))
+        log |> Option.iter (fun log -> log.Selected(box (result.ToArray())))
         result.ToArray()
 
     static member union(segments: SegmentBool[], log: BuildLog option) : SegmentBool[] =

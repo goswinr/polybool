@@ -36,8 +36,8 @@ module SegmentChainer =
             None
 
     let joinLines(seg1: Segment, seg2: Segment) : Segment option =
-        if Geometry.isCollinear(seg1.p0, seg1.p1, seg2.p1) then
-            Some(Segment(seg1.p0, seg2.p1))
+        if Geometry.isCollinear(seg1.P0, seg1.P1, seg2.P1) then
+            Some(Segment(seg1.P0, seg2.P1))
         else
             None
 
@@ -54,19 +54,19 @@ module SegmentChainer =
         let regions: ResizeArray<Segment[]> = ResizeArray<Segment[]>()
 
         for segb: SegmentBool in segments do
-            let mutable seg: Segment = segb.data
-            let closed: bool = segb.closed
+            let mutable seg: Segment = segb.Data
+            let closed: bool = segb.Closed
             let chains: ResizeArray<SegsFill> = if closed then closedChains else openChains
-            let pt1: Vec2 = seg.start()
+            let pt1: Vec2 = seg.Start()
             let pt2: Vec2 = seg.``end``()
 
             let reverseChain(index: int) : ResizeArray<Segment> =
-                log |> Option.iter (fun log -> log.chainReverse(index, closed))
+                log |> Option.iter (fun log -> log.ChainReverse(index, closed))
 
                 let newChain: ResizeArray<Segment> = ResizeArray<Segment>()
 
                 for seg: Segment in chains.[index].segs do
-                    newChain.Insert(0, seg.reverse())
+                    newChain.Insert(0, seg.Reverse())
 
                 chains.[index] <- {
                     segs = newChain
@@ -80,7 +80,7 @@ module SegmentChainer =
                     "PolyBool: Warning: Zero-length segment detected; your epsilon is probably too small or too large"
                 )
             else
-                log |> Option.iter (fun log -> log.chainStart(segFill(seg, Option.defaultValue false segb.myFill.above), closed))
+                log |> Option.iter (fun log -> log.ChainStart(segFill(seg, Option.defaultValue false segb.MyFill.above), closed))
 
                 let firstMatch: ChainMatch = { index = 0; matchesHead = false; matchesPt1 = false }
                 let secondMatch: ChainMatch = { index = 0; matchesHead = false; matchesPt1 = false }
@@ -104,7 +104,7 @@ module SegmentChainer =
 
                 for i = 0 to chains.Count - 1 do
                     let chain: ResizeArray<Segment> = chains.[i].segs
-                    let head: Vec2 = chain.[0].start()
+                    let head: Vec2 = chain.[0].Start()
                     let tail: Vec2 = chain.[chain.Count - 1].``end``()
 
                     if Geometry.isEqualVec2(head, pt1) then
@@ -121,31 +121,31 @@ module SegmentChainer =
                             ()
 
                 if nextMatch |> Option.exists (fun m -> obj.ReferenceEquals(m, firstMatch)) then
-                    let fill: bool = Option.defaultValue false segb.myFill.above
+                    let fill: bool = Option.defaultValue false segb.MyFill.above
                     chains.Add({ segs = ResizeArray<Segment>([| seg |]); fill = fill })
-                    log |> Option.iter (fun log -> log.chainNew(segFill(seg, fill), closed))
+                    log |> Option.iter (fun log -> log.ChainNew(segFill(seg, fill), closed))
                 elif nextMatch |> Option.exists (fun m -> obj.ReferenceEquals(m, secondMatch)) then
                     let index: int = firstMatch.index
-                    log |> Option.iter (fun log -> log.chainMatch(index, closed))
+                    log |> Option.iter (fun log -> log.ChainMatch(index, closed))
 
                     let chain: ResizeArray<Segment> = chains.[index].segs
                     let fill: bool = chains.[index].fill
 
                     if firstMatch.matchesHead then
                         if firstMatch.matchesPt1 then
-                            seg <- seg.reverse()
-                            log |> Option.iter (fun log -> log.chainAddHead(index, segFill(seg, fill), closed))
+                            seg <- seg.Reverse()
+                            log |> Option.iter (fun log -> log.ChainAddHead(index, segFill(seg, fill), closed))
                             chain.Insert(0, seg)
                         else
-                            log |> Option.iter (fun log -> log.chainAddHead(index, segFill(seg, fill), closed))
+                            log |> Option.iter (fun log -> log.ChainAddHead(index, segFill(seg, fill), closed))
                             chain.Insert(0, seg)
                     else
                         if firstMatch.matchesPt1 then
-                            log |> Option.iter (fun log -> log.chainAddTail(index, segFill(seg, fill), closed))
+                            log |> Option.iter (fun log -> log.ChainAddTail(index, segFill(seg, fill), closed))
                             chain.Add(seg)
                         else
-                            seg <- seg.reverse()
-                            log |> Option.iter (fun log -> log.chainAddTail(index, segFill(seg, fill), closed))
+                            seg <- seg.Reverse()
+                            log |> Option.iter (fun log -> log.ChainAddTail(index, segFill(seg, fill), closed))
                             chain.Add(seg)
 
                     if firstMatch.matchesHead then
@@ -155,7 +155,7 @@ module SegmentChainer =
                         | Some newSeg ->
                             chain.RemoveAt(0)
                             chain.[0] <- newSeg
-                            log |> Option.iter (fun log -> log.chainSimplifyHead(index, segFill(newSeg, fill), closed))
+                            log |> Option.iter (fun log -> log.ChainSimplifyHead(index, segFill(newSeg, fill), closed))
                         | None ->
                             ()
                     else
@@ -165,7 +165,7 @@ module SegmentChainer =
                         | Some newSeg ->
                             chain.RemoveAt(chain.Count - 1)
                             chain.[chain.Count - 1] <- newSeg
-                            log |> Option.iter (fun log -> log.chainSimplifyTail(index, segFill(newSeg, fill), closed))
+                            log |> Option.iter (fun log -> log.ChainSimplifyTail(index, segFill(newSeg, fill), closed))
                         | None ->
                             ()
 
@@ -174,9 +174,9 @@ module SegmentChainer =
                         let mutable segS: Segment = finalChain.[0]
                         let mutable segE: Segment = finalChain.[finalChain.Count - 1]
 
-                        if finalChain.Count > 0 && Geometry.isEqualVec2(segS.start(), segE.``end``()) then
+                        if finalChain.Count > 0 && Geometry.isEqualVec2(segS.Start(), segE.``end``()) then
                             let mutable winding: float = 0.0
-                            let mutable last: Vec2 = finalChain.[0].start()
+                            let mutable last: Vec2 = finalChain.[0].Start()
 
                             for seg: Segment in finalChain do
                                 let here: Vec2 = seg.``end``()
@@ -194,11 +194,11 @@ module SegmentChainer =
                             | Some newStart ->
                                 finalChain.RemoveAt(finalChain.Count - 1)
                                 finalChain.[0] <- newStart
-                                log |> Option.iter (fun log -> log.chainSimplifyClose(index, segFill(newStart, fill), closed))
+                                log |> Option.iter (fun log -> log.ChainSimplifyClose(index, segFill(newStart, fill), closed))
                             | None ->
                                 ()
 
-                            log |> Option.iter (fun log -> log.chainClose(index, closed))
+                            log |> Option.iter (fun log -> log.ChainClose(index, closed))
                             chains.RemoveAt(index)
                             regions.Add(finalChain.ToArray())
                 else
@@ -207,7 +207,7 @@ module SegmentChainer =
                         let fill: bool = chains.[index1].fill
                         let chain2: ResizeArray<Segment> = chains.[index2].segs
 
-                        log |> Option.iter (fun log -> log.chainAddTail(index1, segFill(seg, fill), closed))
+                        log |> Option.iter (fun log -> log.ChainAddTail(index1, segFill(seg, fill), closed))
                         chain1.Add(seg)
 
                         let next: Segment option = tryGet(chain1, chain1.Count - 2)
@@ -216,7 +216,7 @@ module SegmentChainer =
                         | Some newEnd ->
                             chain1.RemoveAt(chain1.Count - 1)
                             chain1.[chain1.Count - 1] <- newEnd
-                            log |> Option.iter (fun log -> log.chainSimplifyTail(index1, segFill(newEnd, fill), closed))
+                            log |> Option.iter (fun log -> log.ChainSimplifyTail(index1, segFill(newEnd, fill), closed))
                         | None ->
                             ()
 
@@ -228,11 +228,11 @@ module SegmentChainer =
                             chain2.RemoveAt(0)
                             chain1.[chain1.Count - 1] <- newJoin
                             log
-                            |> Option.iter (fun log -> log.chainSimplifyJoin(index1, index2, segFill(newJoin, fill), closed))
+                            |> Option.iter (fun log -> log.ChainSimplifyJoin(index1, index2, segFill(newJoin, fill), closed))
                         | None ->
                             ()
 
-                        log |> Option.iter (fun log -> log.chainJoin(index1, index2, closed))
+                        log |> Option.iter (fun log -> log.ChainJoin(index1, index2, closed))
 
                         for part: Segment in chain2 do
                             chain1.Add(part)
@@ -243,7 +243,7 @@ module SegmentChainer =
                     let fIndex: int = firstMatch.index
                     let sIndex: int = secondMatch.index
 
-                    log |> Option.iter (fun log -> log.chainConnect(fIndex, sIndex, closed))
+                    log |> Option.iter (fun log -> log.ChainConnect(fIndex, sIndex, closed))
 
                     let reverseF: bool = chains.[fIndex].segs.Count < chains.[sIndex].segs.Count
 
@@ -251,37 +251,37 @@ module SegmentChainer =
                         if secondMatch.matchesHead then
                             if reverseF then
                                 if not firstMatch.matchesPt1 then
-                                    seg <- seg.reverse()
+                                    seg <- seg.Reverse()
 
                                 reverseChain(fIndex) |> ignore
                                 appendChain(fIndex, sIndex)
                             else
                                 if firstMatch.matchesPt1 then
-                                    seg <- seg.reverse()
+                                    seg <- seg.Reverse()
 
                                 reverseChain(sIndex) |> ignore
                                 appendChain(sIndex, fIndex)
                         else
                             if firstMatch.matchesPt1 then
-                                seg <- seg.reverse()
+                                seg <- seg.Reverse()
 
                             appendChain(sIndex, fIndex)
                     else
                         if secondMatch.matchesHead then
                             if not firstMatch.matchesPt1 then
-                                seg <- seg.reverse()
+                                seg <- seg.Reverse()
 
                             appendChain(fIndex, sIndex)
                         else
                             if reverseF then
                                 if firstMatch.matchesPt1 then
-                                    seg <- seg.reverse()
+                                    seg <- seg.Reverse()
 
                                 reverseChain(fIndex) |> ignore
                                 appendChain(sIndex, fIndex)
                             else
                                 if not firstMatch.matchesPt1 then
-                                    seg <- seg.reverse()
+                                    seg <- seg.Reverse()
 
                                 reverseChain(sIndex) |> ignore
                                 appendChain(fIndex, sIndex)
@@ -296,7 +296,7 @@ module SegmentChainer =
         
         receiver: PolyBoolReceiver
     ) : PolyBoolReceiver =
-        receiver.beginPath()
+        receiver.BeginPath()
 
         for region: Segment[] in segments do
             if region.Length > 0 then
@@ -304,16 +304,16 @@ module SegmentChainer =
                     let seg: Segment = region.[i]
 
                     if i = 0 then
-                        let p0: Vec2 = seg.start()
-                        receiver.moveTo(p0.[0], p0.[1])
+                        let p0: Vec2 = seg.Start()
+                        receiver.MoveTo(p0.[0], p0.[1])
 
-                    let p1: Vec2 = seg.p1
-                    receiver.lineTo(p1.[0], p1.[1])
+                    let p1: Vec2 = seg.P1
+                    receiver.LineTo(p1.[0], p1.[1])
 
                 let first: Segment = region.[0]
                 let last: Segment = region.[region.Length - 1]
 
-                if Geometry.isEqualVec2(first.start(), last.``end``()) then
-                    receiver.closePath()
+                if Geometry.isEqualVec2(first.Start(), last.``end``()) then
+                    receiver.ClosePath()
 
         receiver
