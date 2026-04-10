@@ -10,12 +10,14 @@ namespace PolyBool
 type internal Polygon =
     {
         regions: float[][]
+        /// Inverted Polygons means the concept of an "infinite plane minus this polygon".
         inverted: bool
     }
 
 type internal Segments =
     {
         shape: Shape
+        /// Inverted Polygons means the concept of an "infinite plane minus this polygon".
         inverted: bool
     }
 
